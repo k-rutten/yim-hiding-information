@@ -53,3 +53,494 @@
         };
 
         const roles = {
+            admin: {
+                name: "Administrator",
+                description: "Volledige toegang",
+                permissions: { personal: "full", employment: "full", compliance: "full", access: "full" },
+                canReveal: true
+            },
+            hr: {
+                name: "HR Manager",
+                description: "Persoons- en arbeidsgegevens",
+                permissions: { personal: "partial", employment: "full", compliance: "summary", access: "summary" },
+                canReveal: true
+            },
+            security: {
+                name: "Security Manager",
+                description: "Compliance en toegang",
+                permissions: { personal: "minimal", employment: "minimal", compliance: "full", access: "full" },
+                canReveal: true
+            },
+            contractor: {
+                name: "Contractor",
+                description: "Beperkte toegang",
+                permissions: { personal: "hidden", employment: "minimal", compliance: "summary", access: "summary" },
+                canReveal: false
+            },
+            guest: {
+                name: "Guest",
+                description: "Basis verificatie",
+                permissions: { personal: "hidden", employment: "hidden", compliance: "minimal", access: "minimal" },
+                canReveal: false
+            }
+        };
+
+        function App() {
+            const [currentRole, setCurrentRole] = useState('admin');
+            const [showHelp, setShowHelp] = useState(true);
+            const [auditLog, setAuditLog] = useState([]);
+            const [showAudit, setShowAudit] = useState(false);
+            const [revealedFields, setRevealedFields] = useState({});
+
+            const role = roles[currentRole];
+
+            // Log field reveal
+            const logFieldReveal = (category, field, value) => {
+                const entry = {
+                    timestamp: new Date().toISOString(),
+                    role: role.name,
+                    category,
+                    field,
+                    value: value.substring(0, 20) + (value.length > 20 ? '...' : ''),
+                    action: 'FIELD_REVEAL'
+                };
+                setAuditLog(prev => [entry, ...prev]);
+            };
+
+            // Handle field reveal with 5-second timeout
+            const handleReveal = (fieldKey, category, field, value) => {
+                if (!role.canReveal) return;
+
+                setRevealedFields(prev => ({ ...prev, [fieldKey]: true }));
+                logFieldReveal(category, field, value);
+
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    setRevealedFields(prev => {
+                        const updated = { ...prev };
+                        delete updated[fieldKey];
+                        return updated;
+                    });
+                }, 5000);
+            };
+
+            const maskValue = (value, permission, isRevealed = false) => {
+                if (isRevealed || permission === 'full') return value;
+                if (permission === 'hidden') return null;
+                if (permission === 'minimal') return '••••••••';
+                if (permission === 'partial') {
+                    if (typeof value === 'string') {
+                        if (value.includes('@')) {
+                            const [user, domain] = value.split('@');
+                            return `${user.substring(0, 2)}••••@${domain}`;
+                        }
+                        if (value.includes('+31')) return '+31 6 ••••••78';
+                        if (value.length > 8) return value.substring(0, 3) + '••••••';
+                    }
+                    return '••••••••';
+                }
+                if (permission === 'summary') return '✓ Beschikbaar';
+                return value;
+            };
+
+            const DataField = ({ label, value, category, sensitive, fieldId }) => {
+                const permission = role.permissions[category];
+                const fieldKey = `${category}.${fieldId}`;
+                const isRevealed = revealedFields[fieldKey];
+                const masked = maskValue(value, permission, isRevealed);
+                
+                if (permission === 'hidden' || masked === null) return null;
+
+                const isMasked = permission !== 'full' && masked !== value && !isRevealed;
+                const canReveal = role.canReveal && isMasked && sensitive;
+
+                return (
+                    <div className="flex justify-between items-start py-3 border-b border-gray-100 last:border-0 group">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600 w-36">{label}</span>
+                            {sensitive && isMasked && (
+                                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            )}
+                            {isRevealed && (
+                                <span className="flex items-center gap-1 text-xs text-green-600">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    5s
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-sm font-medium ${isMasked ? 'text-gray-400' : 'text-gray-900'}`}>
+                                {masked}
+                            </span>
+                            {canReveal && (
+                                <button
+                                    onClick={() => handleReveal(fieldKey, category, label, value)}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
+                                    title="Toon gedurende 5 seconden"
+                                >
+                                    Toon
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const PermissionBadge = ({ permission }) => {
+                const configs = {
+                    full: { label: 'Volledig', className: 'bg-green-50 text-green-700 border border-green-200' },
+                    partial: { label: 'Gedeeltelijk', className: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
+                    summary: { label: 'Samenvatting', className: 'bg-blue-50 text-blue-700 border border-blue-200' },
+                    minimal: { label: 'Minimaal', className: 'bg-orange-50 text-orange-700 border border-orange-200' },
+                    hidden: { label: 'Verborgen', className: 'bg-gray-50 text-gray-600 border border-gray-200' }
+                };
+
+                const config = configs[permission] || configs.full;
+
+                return (
+                    <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${config.className}`}>
+                        {config.label}
+                    </span>
+                );
+            };
+
+            const DataSection = ({ title, category, icon, children }) => {
+                const permission = role.permissions[category];
+                const isHidden = permission === 'hidden';
+
+                if (isHidden) {
+                    return (
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 opacity-50">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                                    {icon}
+                                </div>
+                                <h3 className="text-base font-semibold text-gray-700 flex-1">{title}</h3>
+                                <span className="text-xs text-gray-500 flex items-center gap-1">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                    Geen toegang
+                                </span>
+                            </div>
+                            <p className="text-sm text-gray-500">Deze gegevens zijn niet zichtbaar voor uw rol.</p>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:border-gray-300 transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                                {icon}
+                            </div>
+                            <h3 className="text-base font-semibold text-gray-900 flex-1">{title}</h3>
+                            <PermissionBadge permission={permission} />
+                        </div>
+                        <div>{children}</div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+                        <div className="max-w-6xl mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                    <div>
+                                        <h1 className="text-xl font-semibold text-gray-900">YIM Data Privacy</h1>
+                                        <p className="text-sm text-gray-500">Rolgebaseerde toegangscontrole met audit logging</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={() => setShowHelp(!showHelp)}
+                                        className="text-sm text-gray-600 hover:text-gray-900"
+                                    >
+                                        {showHelp ? 'Verberg' : 'Toon'} permissies
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowAudit(!showAudit)}
+                                        className="relative px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                                    >
+                                        Audit Log
+                                        {auditLog.length > 0 && (
+                                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                                {auditLog.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-6xl mx-auto px-6 py-8">
+                        {/* Role Selector */}
+                        <div className="mb-8">
+                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                Bekijk als gebruikersrol:
+                            </label>
+                            <div className="grid grid-cols-5 gap-3">
+                                {Object.entries(roles).map(([key, roleData]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setCurrentRole(key)}
+                                        className={`p-4 rounded-xl border-2 text-left transition-all ${
+                                            currentRole === key
+                                                ? 'border-blue-600 bg-blue-50'
+                                                : 'border-gray-200 bg-white hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="font-semibold text-sm mb-1 text-gray-900">
+                                            {roleData.name}
+                                        </div>
+                                        <div className="text-xs text-gray-500 leading-relaxed mb-2">
+                                            {roleData.description}
+                                        </div>
+                                        {roleData.canReveal && (
+                                            <div className="flex items-center gap-1 text-xs text-green-600">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                View rechten
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Permission Info */}
+                        {showHelp && (
+                            <div className="mb-8 bg-blue-50 rounded-xl p-6 border border-blue-200">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                                            Toegangsniveaus voor {role.name}
+                                        </h3>
+                                        {role.canReveal && (
+                                            <p className="text-xs text-gray-600">
+                                                Hover over gemaskeerde velden om de "Toon" knop te zien (5 seconden zichtbaar)
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-4 gap-3">
+                                    {Object.entries(role.permissions).map(([category, permission]) => (
+                                        <div key={category} className="bg-white rounded-lg p-3 border border-gray-200">
+                                            <div className="text-xs font-medium text-gray-600 mb-2 capitalize">
+                                                {category === 'personal' && 'Persoonsgegevens'}
+                                                {category === 'employment' && 'Arbeidsgegevens'}
+                                                {category === 'compliance' && 'Compliance'}
+                                                {category === 'access' && 'Toegangsrechten'}
+                                            </div>
+                                            <PermissionBadge permission={permission} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Audit Log Modal */}
+                        {showAudit && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
+                                <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+                                    <div className="p-6 border-b border-gray-200">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h2 className="text-lg font-semibold text-gray-900">Audit Trail</h2>
+                                                <p className="text-sm text-gray-600">Logging van ontsleutelde velden</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => setShowAudit(false)}
+                                                className="text-gray-400 hover:text-gray-600"
+                                            >
+                                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-6">
+                                        {auditLog.length === 0 ? (
+                                            <div className="text-center py-12">
+                                                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                <p className="text-gray-500">Nog geen velden ontsleuteld</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {auditLog.map((entry, idx) => (
+                                                    <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                                        <div className="flex items-start justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-mono text-gray-500">
+                                                                    {new Date(entry.timestamp).toLocaleTimeString('nl-NL')}
+                                                                </span>
+                                                                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                                                    {entry.action}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-xs text-gray-600">{entry.role}</span>
+                                                        </div>
+                                                        <div className="text-sm">
+                                                            <span className="font-medium text-gray-900">{entry.category}</span>
+                                                            <span className="text-gray-400 mx-2">→</span>
+                                                            <span className="text-gray-700">{entry.field}</span>
+                                                        </div>
+                                                        <div className="mt-2 text-xs text-gray-500 font-mono bg-white px-2 py-1 rounded">
+                                                            {entry.value}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-6 border-t border-gray-200 bg-gray-50">
+                                        <div className="flex items-center justify-between text-sm text-gray-600">
+                                            <span>Totaal: {auditLog.length} acties</span>
+                                            <button 
+                                                onClick={() => setAuditLog([])}
+                                                className="text-red-600 hover:text-red-700 font-medium"
+                                            >
+                                                Wis log
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Person Header */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-semibold">
+                                    {role.permissions.personal !== 'hidden' ? 'JV' : '••'}
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-2xl font-semibold text-gray-900 mb-1">
+                                        {maskValue('Jan de Vries', role.permissions.personal)}
+                                    </h2>
+                                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                                        <span>{maskValue('ABC Bouw B.V.', role.permissions.employment)}</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span>{maskValue('Projectleider', role.permissions.employment)}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                    <span className="text-sm font-medium text-gray-900">Actief</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Data Sections */}
+                        <div className="space-y-6">
+                            <DataSection 
+                                title="Persoonsgegevens" 
+                                category="personal"
+                                icon={
+                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                }
+                            >
+                                <DataField label="Voornaam" value={personData.personal.firstName} category="personal" fieldId="firstName" />
+                                <DataField label="Achternaam" value={personData.personal.lastName} category="personal" fieldId="lastName" />
+                                <DataField label="E-mail" value={personData.personal.email} category="personal" sensitive fieldId="email" />
+                                <DataField label="Telefoon" value={personData.personal.phone} category="personal" sensitive fieldId="phone" />
+                                <DataField label="Geboortedatum" value={personData.personal.dateOfBirth} category="personal" sensitive fieldId="dob" />
+                                <DataField label="BSN" value={personData.personal.bsn} category="personal" sensitive fieldId="bsn" />
+                                <DataField label="Nationaliteit" value={personData.personal.nationality} category="personal" fieldId="nationality" />
+                                <DataField label="Adres" value={personData.personal.address} category="personal" sensitive fieldId="address" />
+                            </DataSection>
+
+                            <DataSection 
+                                title="Arbeidsgegevens" 
+                                category="employment"
+                                icon={
+                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                }
+                            >
+                                <DataField label="Bedrijf" value={personData.employment.company} category="employment" fieldId="company" />
+                                <DataField label="KVK Nummer" value={personData.employment.kvkNumber} category="employment" fieldId="kvk" />
+                                <DataField label="Medewerker Nr." value={personData.employment.employeeNumber} category="employment" fieldId="empNo" />
+                                <DataField label="Functie" value={personData.employment.function} category="employment" fieldId="function" />
+                                <DataField label="Afdeling" value={personData.employment.department} category="employment" fieldId="dept" />
+                                <DataField label="Contract Type" value={personData.employment.contractType} category="employment" fieldId="contract" />
+                                <DataField label="Startdatum" value={personData.employment.startDate} category="employment" fieldId="start" />
+                            </DataSection>
+
+                            <DataSection 
+                                title="Compliance & Certificaten" 
+                                category="compliance"
+                                icon={
+                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                    </svg>
+                                }
+                            >
+                                <DataField label="VCA Status" value={personData.compliance.vca.status} category="compliance" fieldId="vcaStat" />
+                                <DataField label="VCA Geldig tot" value={personData.compliance.vca.expiryDate} category="compliance" fieldId="vcaExp" />
+                                <DataField label="VCA Nummer" value={personData.compliance.vca.number} category="compliance" fieldId="vcaNum" />
+                                <DataField label="VOG Status" value={personData.compliance.vog.status} category="compliance" fieldId="vogStat" />
+                                <DataField label="VOG Geldig tot" value={personData.compliance.vog.expiryDate} category="compliance" fieldId="vogExp" />
+                                <DataField label="Safety Training" value={personData.compliance.safety.status} category="compliance" fieldId="safety" />
+                                <DataField label="COVID Certificaat" value={personData.compliance.covid.status} category="compliance" fieldId="covid" />
+                            </DataSection>
+
+                            <DataSection 
+                                title="Toegangsrechten" 
+                                category="access"
+                                icon={
+                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                }
+                            >
+                                <DataField label="Locaties" value={personData.access.sites.join(', ')} category="access" fieldId="sites" />
+                                <DataField label="Zones" value={personData.access.zones.join(', ')} category="access" fieldId="zones" />
+                                <DataField label="Pas Nummer" value={personData.access.cardNumber} category="access" fieldId="card" />
+                                <DataField label="Geldig tot" value={personData.access.validUntil} category="access" fieldId="valid" />
+                                <DataField label="Laatste toegang" value={personData.access.lastAccess} category="access" fieldId="last" />
+                            </DataSection>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="mt-8 p-6 bg-gray-100 rounded-xl border border-gray-200">
+                            <div className="flex items-start gap-3">
+                                <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <h4 className="text-sm font-semibold text-gray-900 mb-1">Privacy & Audit Trail</h4>
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                        Gevoelige velden zijn standaard gemaskeerd. Geautoriseerde rollen kunnen data tijdelijk onthullen (5 seconden). 
+                                        Alle ontsleutelingen worden gelogd in de audit trail voor compliance en security audits.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
