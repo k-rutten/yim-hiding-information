@@ -575,51 +575,163 @@
             );
         }
 
+        // Data Groups Configuration
+        const dataGroups = [
+            {
+                id: 'identity',
+                name: 'Identiteit (basis)',
+                sensitivity: 'basis',
+                description: 'Basisidentificatie van de persoon',
+                fields: [
+                    { name: 'Voornaam', description: 'Officiële voornaam' },
+                    { name: 'Achternaam', description: 'Officiële achternaam' },
+                    { name: 'Geboortedatum', description: 'Datum van geboorte' }
+                ]
+            },
+            {
+                id: 'contact_work',
+                name: 'Contact (werk)',
+                sensitivity: 'basis',
+                description: 'Zakelijke contactgegevens',
+                fields: [
+                    { name: 'Zakelijk e-mail', description: 'Bedrijfs e-mailadres' },
+                    { name: 'Zakelijk telefoon', description: 'Werktelefoon of mobiel' }
+                ]
+            },
+            {
+                id: 'address',
+                name: 'Adres / woonplaats',
+                sensitivity: 'gevoelig',
+                description: 'Privé woonadresgegevens',
+                fields: [
+                    { name: 'Woonplaats', description: 'Stad of gemeente' },
+                    { name: 'Postcode', description: 'Postcode' },
+                    { name: 'Straat + huisnummer', description: 'Volledig adres' }
+                ]
+            },
+            {
+                id: 'government_id',
+                name: 'Overheids-ID',
+                sensitivity: 'zeer_gevoelig',
+                description: 'Officiële identificatiedocumenten',
+                fields: [
+                    { name: 'BSN', description: 'Burgerservicenummer' },
+                    { name: 'Documentnummer', description: 'Paspoort of ID-kaart nummer' }
+                ]
+            },
+            {
+                id: 'compliance',
+                name: 'Compliance (status)',
+                sensitivity: 'basis',
+                description: 'Certificaten en compliance status',
+                fields: [
+                    { name: 'VCA status', description: 'Veiligheid Checklist Aannemers' },
+                    { name: 'VCA verloopdatum', description: 'Geldigheid certificaat' },
+                    { name: 'VOG status', description: 'Verklaring Omtrent Gedrag' }
+                ]
+            },
+            {
+                id: 'hours',
+                name: 'Uren / inzet',
+                sensitivity: 'basis',
+                description: 'Gewerkte uren en inzet details',
+                fields: [
+                    { name: 'Gewerkte uren', description: 'Totaal uren per periode' },
+                    { name: 'Project toewijzing', description: 'Actieve projecten' }
+                ]
+            },
+            {
+                id: 'employment',
+                name: 'Arbeidsgegevens',
+                sensitivity: 'gevoelig',
+                description: 'Contract en dienstverband info',
+                fields: [
+                    { name: 'Bedrijf', description: 'Werkgever' },
+                    { name: 'Functie', description: 'Functietitel' },
+                    { name: 'Contract type', description: 'Vast/tijdelijk/ZZP' },
+                    { name: 'Startdatum', description: 'Datum indiensttreding' }
+                ]
+            },
+            {
+                id: 'access',
+                name: 'Toegangsrechten',
+                sensitivity: 'gevoelig',
+                description: 'Fysieke en digitale toegang',
+                fields: [
+                    { name: 'Locaties', description: 'Toegestane werklocaties' },
+                    { name: 'Zones', description: 'Toegangszones' },
+                    { name: 'Pasnummer', description: 'Toegangspasnummer' }
+                ]
+            }
+        ];
+
+        // Visibility modes
+        const visibilityModes = [
+            { value: 'hidden', label: 'Niet tonen', color: 'bg-gray-100 text-gray-600' },
+            { value: 'show', label: 'Tonen', color: 'bg-green-100 text-green-700' },
+            { value: 'own_company', label: 'Alleen eigen bedrijf', color: 'bg-blue-100 text-blue-700' },
+            { value: 'with_subs', label: 'Incl. subcontractors', color: 'bg-purple-100 text-purple-700' },
+            { value: 'masked', label: 'Gemaskeerd', color: 'bg-yellow-100 text-yellow-700' }
+        ];
+
         // Admin Panel Component
         function AdminPanel({ roles, setRoles }) {
-            const [editingRole, setEditingRole] = useState(null);
+            const [selectedRole, setSelectedRole] = useState(null);
             const [editForm, setEditForm] = useState({});
+            const [expandedGroups, setExpandedGroups] = useState({});
             const [deleteConfirm, setDeleteConfirm] = useState(null);
+            const [isNewRole, setIsNewRole] = useState(false);
 
-            const permissionOptions = [
-                { value: 'full', label: 'Volledig' },
-                { value: 'partial', label: 'Gedeeltelijk' },
-                { value: 'summary', label: 'Samenvatting' },
-                { value: 'minimal', label: 'Minimaal' },
-                { value: 'hidden', label: 'Verborgen' }
-            ];
-
-            const categoryLabels = {
-                personal: 'Persoonsgegevens',
-                employment: 'Arbeidsgegevens',
-                compliance: 'Compliance',
-                access: 'Toegangsrechten'
+            // Initialize role with data groups
+            const initializeRoleGroups = (role) => {
+                const groups = role.dataGroups || {};
+                dataGroups.forEach(g => {
+                    if (!groups[g.id]) {
+                        groups[g.id] = 'hidden';
+                    }
+                });
+                return { ...role, dataGroups: groups };
             };
 
-            const startEdit = (key) => {
-                setEditingRole(key);
-                setEditForm({ ...roles[key] });
+            const openRoleModal = (key) => {
+                const roleData = initializeRoleGroups(roles[key]);
+                setSelectedRole(key);
+                setEditForm({ ...roleData });
+                setExpandedGroups({});
+                setIsNewRole(false);
             };
 
-            const startNew = () => {
-                setEditingRole('new');
-                setEditForm({
+            const openNewRoleModal = () => {
+                const newRole = {
                     name: '',
                     description: '',
-                    permissions: { personal: 'minimal', employment: 'minimal', compliance: 'minimal', access: 'minimal' },
+                    dataGroups: {},
                     canReveal: false
+                };
+                dataGroups.forEach(g => {
+                    newRole.dataGroups[g.id] = 'hidden';
                 });
+                setSelectedRole('new');
+                setEditForm(newRole);
+                setExpandedGroups({});
+                setIsNewRole(true);
+            };
+
+            const closeModal = () => {
+                setSelectedRole(null);
+                setEditForm({});
+                setExpandedGroups({});
+                setIsNewRole(false);
             };
 
             const saveRole = () => {
-                if (editingRole === 'new') {
+                if (isNewRole) {
                     const key = editForm.name.toLowerCase().replace(/\s+/g, '_');
                     setRoles(prev => ({ ...prev, [key]: editForm }));
                 } else {
-                    setRoles(prev => ({ ...prev, [editingRole]: editForm }));
+                    setRoles(prev => ({ ...prev, [selectedRole]: editForm }));
                 }
-                setEditingRole(null);
-                setEditForm({});
+                closeModal();
             };
 
             const deleteRole = (key) => {
@@ -629,22 +741,48 @@
                     return updated;
                 });
                 setDeleteConfirm(null);
+                closeModal();
             };
 
-            const PermissionBadge = ({ permission }) => {
+            const toggleGroupExpand = (groupId) => {
+                setExpandedGroups(prev => ({
+                    ...prev,
+                    [groupId]: !prev[groupId]
+                }));
+            };
+
+            const updateGroupVisibility = (groupId, value) => {
+                setEditForm(prev => ({
+                    ...prev,
+                    dataGroups: {
+                        ...prev.dataGroups,
+                        [groupId]: value
+                    }
+                }));
+            };
+
+            const getSensitivityBadge = (sensitivity) => {
                 const configs = {
-                    full: { label: 'Volledig', className: 'bg-green-50 text-green-700 border border-green-200' },
-                    partial: { label: 'Gedeeltelijk', className: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
-                    summary: { label: 'Samenvatting', className: 'bg-blue-50 text-blue-700 border border-blue-200' },
-                    minimal: { label: 'Minimaal', className: 'bg-orange-50 text-orange-700 border border-orange-200' },
-                    hidden: { label: 'Verborgen', className: 'bg-gray-50 text-gray-600 border border-gray-200' }
+                    basis: { label: 'Basis', className: 'bg-gray-100 text-gray-600' },
+                    gevoelig: { label: 'Gevoelig', className: 'bg-orange-100 text-orange-700' },
+                    zeer_gevoelig: { label: 'Zeer gevoelig', className: 'bg-red-100 text-red-700' }
                 };
-                const config = configs[permission] || configs.full;
+                const config = configs[sensitivity] || configs.basis;
                 return (
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.className}`}>
                         {config.label}
                     </span>
                 );
+            };
+
+            const getVisibilityLabel = (value) => {
+                const mode = visibilityModes.find(m => m.value === value);
+                return mode ? mode.label : 'Niet tonen';
+            };
+
+            const countVisibleGroups = (role) => {
+                if (!role.dataGroups) return 0;
+                return Object.values(role.dataGroups).filter(v => v !== 'hidden').length;
             };
 
             return (
@@ -653,10 +791,10 @@
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h2 className="text-xl font-semibold text-gray-900">Rollenbeheer</h2>
-                            <p className="text-sm text-gray-600">Beheer rollen en hun toegangsrechten</p>
+                            <p className="text-sm text-gray-600">Beheer rollen en hun toegang tot data-groepen</p>
                         </div>
                         <button
-                            onClick={startNew}
+                            onClick={openNewRoleModal}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -666,209 +804,207 @@
                         </button>
                     </div>
 
-                    {/* Role Cards */}
-                    <div className="space-y-4">
-                        {Object.entries(roles).map(([key, roleData]) => (
-                            <div key={key} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                                {editingRole === key ? (
-                                    // Edit Mode
-                                    <div className="p-6">
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
-                                                <input
-                                                    type="text"
-                                                    value={editForm.name}
-                                                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                />
+                    {/* Roles Table */}
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Rol</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Beschrijving</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Data-groepen</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Onthullen</th>
+                                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actie</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {Object.entries(roles).map(([key, roleData]) => (
+                                    <tr
+                                        key={key}
+                                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                        onClick={() => openRoleModal(key)}
+                                    >
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-gray-900">{roleData.name}</div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm text-gray-600">{roleData.description}</div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm text-gray-600">
+                                                {countVisibleGroups(roleData)} / {dataGroups.length} groepen
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Beschrijving</label>
-                                                <input
-                                                    type="text"
-                                                    value={editForm.description}
-                                                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Permissies</label>
-                                            <div className="grid grid-cols-4 gap-3">
-                                                {Object.entries(categoryLabels).map(([cat, label]) => (
-                                                    <div key={cat}>
-                                                        <label className="block text-xs text-gray-600 mb-1">{label}</label>
-                                                        <select
-                                                            value={editForm.permissions?.[cat] || 'minimal'}
-                                                            onChange={(e) => setEditForm(prev => ({
-                                                                ...prev,
-                                                                permissions: { ...prev.permissions, [cat]: e.target.value }
-                                                            }))}
-                                                            className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        >
-                                                            {permissionOptions.map(opt => (
-                                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <input
-                                                type="checkbox"
-                                                id={`canReveal-${key}`}
-                                                checked={editForm.canReveal || false}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, canReveal: e.target.checked }))}
-                                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                            />
-                                            <label htmlFor={`canReveal-${key}`} className="text-sm text-gray-700">
-                                                Kan gemaskeerde velden onthullen
-                                            </label>
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {roleData.canReveal ? (
+                                                <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Ja
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                                    Nee
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
                                             <button
-                                                onClick={() => setDeleteConfirm(key)}
-                                                className="text-sm text-red-600 hover:text-red-700 font-medium"
-                                            >
-                                                Verwijderen
-                                            </button>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => { setEditingRole(null); setEditForm({}); }}
-                                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                                >
-                                                    Annuleren
-                                                </button>
-                                                <button
-                                                    onClick={saveRole}
-                                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                                                >
-                                                    Opslaan
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    // View Mode
-                                    <div className="p-6">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div>
-                                                <h3 className="text-base font-semibold text-gray-900">{roleData.name}</h3>
-                                                <p className="text-sm text-gray-600">{roleData.description}</p>
-                                            </div>
-                                            <button
-                                                onClick={() => startEdit(key)}
+                                                onClick={(e) => { e.stopPropagation(); openRoleModal(key); }}
                                                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                                             >
-                                                Bewerk
+                                                Bewerken
                                             </button>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 mb-2">
-                                            {Object.entries(roleData.permissions).map(([cat, perm]) => (
-                                                <div key={cat} className="flex items-center gap-1.5">
-                                                    <span className="text-xs text-gray-500">{categoryLabels[cat]}:</span>
-                                                    <PermissionBadge permission={perm} />
-                                                </div>
-                                            ))}
-                                        </div>
-                                        {roleData.canReveal && (
-                                            <div className="flex items-center gap-1 text-xs text-green-600">
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                                Kan velden onthullen
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
 
-                    {/* New Role Form */}
-                    {editingRole === 'new' && (
+                    {/* Role Edit Modal */}
+                    {selectedRole && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
-                            <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Nieuwe rol aanmaken</h3>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
-                                        <input
-                                            type="text"
-                                            value={editForm.name}
-                                            onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Bijv. Project Manager"
-                                        />
+                            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                                {/* Modal Header */}
+                                <div className="p-6 border-b border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            {isNewRole ? 'Nieuwe rol aanmaken' : 'Rol bewerken'}
+                                        </h3>
+                                        <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Beschrijving</label>
-                                        <input
-                                            type="text"
-                                            value={editForm.description}
-                                            onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Korte beschrijving van de rol"
-                                        />
+                                </div>
+
+                                {/* Modal Content */}
+                                <div className="flex-1 overflow-y-auto p-6">
+                                    {/* Basic Info */}
+                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+                                            <input
+                                                type="text"
+                                                value={editForm.name || ''}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Bijv. Project Manager"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Beschrijving</label>
+                                            <input
+                                                type="text"
+                                                value={editForm.description || ''}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Korte beschrijving"
+                                            />
+                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Permissies</label>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {Object.entries(categoryLabels).map(([cat, label]) => (
-                                                <div key={cat}>
-                                                    <label className="block text-xs text-gray-600 mb-1">{label}</label>
-                                                    <select
-                                                        value={editForm.permissions?.[cat] || 'minimal'}
-                                                        onChange={(e) => setEditForm(prev => ({
-                                                            ...prev,
-                                                            permissions: { ...prev.permissions, [cat]: e.target.value }
-                                                        }))}
-                                                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    >
-                                                        {permissionOptions.map(opt => (
-                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                        ))}
-                                                    </select>
+                                    {/* Data Groups Section */}
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Data-groepen toegang</h4>
+                                        <div className="space-y-2">
+                                            {dataGroups.map(group => (
+                                                <div key={group.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                                                    {/* Group Header */}
+                                                    <div className="flex items-center justify-between p-3 bg-gray-50">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="font-medium text-sm text-gray-900">{group.name}</span>
+                                                            {getSensitivityBadge(group.sensitivity)}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <select
+                                                                value={editForm.dataGroups?.[group.id] || 'hidden'}
+                                                                onChange={(e) => updateGroupVisibility(group.id, e.target.value)}
+                                                                className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            >
+                                                                {visibilityModes.map(mode => (
+                                                                    <option key={mode.value} value={mode.value}>{mode.label}</option>
+                                                                ))}
+                                                            </select>
+                                                            <button
+                                                                onClick={() => toggleGroupExpand(group.id)}
+                                                                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                                                title="Toon velden"
+                                                            >
+                                                                <svg className={`w-4 h-4 transition-transform ${expandedGroups[group.id] ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Expandable Fields */}
+                                                    {expandedGroups[group.id] && (
+                                                        <div className="p-3 bg-white border-t border-gray-200">
+                                                            <p className="text-xs text-gray-500 mb-2">{group.description}</p>
+                                                            <div className="space-y-1">
+                                                                {group.fields.map((field, idx) => (
+                                                                    <div key={idx} className="flex items-center gap-2 text-sm">
+                                                                        <span className="w-2 h-2 bg-gray-300 rounded-full"></span>
+                                                                        <span className="text-gray-700">{field.name}</span>
+                                                                        <span className="text-gray-400">–</span>
+                                                                        <span className="text-gray-500 text-xs">{field.description}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
+                                    {/* Can Reveal Toggle */}
+                                    <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                                         <input
                                             type="checkbox"
-                                            id="canReveal-new"
+                                            id="canReveal"
                                             checked={editForm.canReveal || false}
                                             onChange={(e) => setEditForm(prev => ({ ...prev, canReveal: e.target.checked }))}
                                             className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                         />
-                                        <label htmlFor="canReveal-new" className="text-sm text-gray-700">
-                                            Kan gemaskeerde velden onthullen
+                                        <label htmlFor="canReveal" className="text-sm text-gray-700">
+                                            Kan gemaskeerde velden tijdelijk onthullen (5 seconden)
                                         </label>
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200">
-                                    <button
-                                        onClick={() => { setEditingRole(null); setEditForm({}); }}
-                                        className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                    >
-                                        Annuleren
-                                    </button>
-                                    <button
-                                        onClick={saveRole}
-                                        disabled={!editForm.name}
-                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Aanmaken
-                                    </button>
+                                {/* Modal Footer */}
+                                <div className="p-6 border-t border-gray-200 bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                        {!isNewRole ? (
+                                            <button
+                                                onClick={() => setDeleteConfirm(selectedRole)}
+                                                className="text-sm text-red-600 hover:text-red-700 font-medium"
+                                            >
+                                                Verwijderen
+                                            </button>
+                                        ) : (
+                                            <div></div>
+                                        )}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={closeModal}
+                                                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                            >
+                                                Annuleren
+                                            </button>
+                                            <button
+                                                onClick={saveRole}
+                                                disabled={!editForm.name}
+                                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isNewRole ? 'Aanmaken' : 'Opslaan'}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
