@@ -57,31 +57,36 @@
                 name: "Administrator",
                 description: "Volledige toegang",
                 permissions: { personal: "full", employment: "full", compliance: "full", access: "full" },
-                canReveal: true
+                canReveal: true,
+                dossierComponents: { foto: 'show', identificatie_locatie: 'show', identificatie_bsn: 'show', posted_worker: 'show', sociale_lasten: 'show', gewerkte_uren: 'show', vca_certificaten: 'show' }
             },
             hr: {
                 name: "HR Manager",
                 description: "Persoons- en arbeidsgegevens",
                 permissions: { personal: "partial", employment: "full", compliance: "summary", access: "summary" },
-                canReveal: true
+                canReveal: true,
+                dossierComponents: { foto: 'show', identificatie_locatie: 'show', identificatie_bsn: 'own_company', posted_worker: 'show', sociale_lasten: 'own_company', gewerkte_uren: 'show', vca_certificaten: 'show' }
             },
             security: {
                 name: "Security Manager",
                 description: "Compliance en toegang",
                 permissions: { personal: "minimal", employment: "minimal", compliance: "full", access: "full" },
-                canReveal: true
+                canReveal: true,
+                dossierComponents: { foto: 'show', identificatie_locatie: 'own_company', identificatie_bsn: 'hidden', posted_worker: 'hidden', sociale_lasten: 'hidden', gewerkte_uren: 'hidden', vca_certificaten: 'show' }
             },
             contractor: {
                 name: "Contractor",
                 description: "Beperkte toegang",
                 permissions: { personal: "hidden", employment: "minimal", compliance: "summary", access: "summary" },
-                canReveal: false
+                canReveal: false,
+                dossierComponents: { foto: 'own_company', identificatie_locatie: 'hidden', identificatie_bsn: 'hidden', posted_worker: 'hidden', sociale_lasten: 'hidden', gewerkte_uren: 'own_company', vca_certificaten: 'own_company' }
             },
             guest: {
                 name: "Guest",
                 description: "Basis verificatie",
                 permissions: { personal: "hidden", employment: "hidden", compliance: "minimal", access: "minimal" },
-                canReveal: false
+                canReveal: false,
+                dossierComponents: { foto: 'hidden', identificatie_locatie: 'hidden', identificatie_bsn: 'hidden', posted_worker: 'hidden', sociale_lasten: 'hidden', gewerkte_uren: 'hidden', vca_certificaten: 'own_company' }
             }
         };
 
@@ -665,24 +670,129 @@
             }
         ];
 
-        // Visibility modes
+        // Visibility modes - simplified for segmented control
         const visibilityModes = [
-            { value: 'hidden', label: 'Niet tonen', color: 'bg-gray-100 text-gray-600' },
-            { value: 'show', label: 'Tonen', color: 'bg-green-100 text-green-700' },
-            { value: 'own_company', label: 'Alleen eigen bedrijf', color: 'bg-blue-100 text-blue-700' },
-            { value: 'with_subs', label: 'Incl. subcontractors', color: 'bg-purple-100 text-purple-700' },
-            { value: 'masked', label: 'Gemaskeerd', color: 'bg-yellow-100 text-yellow-700' }
+            { value: 'hidden', label: 'Verbergen' },
+            { value: 'own_company', label: 'Eigen bedrijf' },
+            { value: 'show', label: 'Tonen' }
         ];
 
-        // Admin Panel Component
+        // Dossier Components Configuration (Tab 2) - with fields for expandable view
+        const dossierComponents = [
+            { id: 'foto', name: 'Foto', description: 'Profielfoto', fields: ['Pasfoto', 'ID-foto'] },
+            { id: 'identificatie_locatie', name: 'Identificatie (nationaliteit)', description: 'Nationaliteit & locatie', fields: ['Nationaliteit', 'Vestigingsland', 'Woonplaats'] },
+            { id: 'identificatie_bsn', name: 'Identificatie (BSN/Doc.nr)', description: 'ID-nummer of BSN', sensitive: true, fields: ['BSN', 'Documentnummer', 'Documenttype', 'Verloopdatum'] },
+            { id: 'posted_worker', name: 'Posted Worker (WagwEU)', description: 'Gedetacheerde werknemer', fields: ['A1-verklaring', 'Werkvergunning', 'Detacheringsovereenkomst', 'Loonstrook herkomstland'] },
+            { id: 'sociale_lasten', name: 'Sociale lasten', description: 'Sociale verzekeringen', fields: ['Verzekeringsland', 'A1-status', 'Premieplicht'] },
+            { id: 'gewerkte_uren', name: 'Gewerkte uren', description: 'Overzicht gewerkte uren', fields: ['Uren per dag', 'Totaal uren', 'Projecttoewijzing'] },
+            { id: 'vca_certificaten', name: 'VCA-certificaten', description: 'Veiligheidscertificaten', fields: ['VCA-basis', 'VCA-VOL', 'Verloopdatum', 'Certificaatnummer'] }
+        ];
+
+        // Component Icon helper - renders SVG icons for dossier components
+        function ComponentIcon({ icon, className = "w-5 h-5" }) {
+            const icons = {
+                camera: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                ),
+                globe: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                    </svg>
+                ),
+                lock: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                ),
+                document: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                ),
+                money: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                ),
+                clock: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                ),
+                badge: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                )
+            };
+            return icons[icon] || icons.document;
+        }
+
+        // Status Dropdown component for dossier components - sophisticated muted colors
+        function StatusDropdown({ value, onChange }) {
+            const [isOpen, setIsOpen] = useState(false);
+
+            const options = [
+                { value: 'show', label: 'Tonen', bgClass: 'bg-emerald-50 border-emerald-200', textClass: 'text-emerald-700', dotClass: 'bg-emerald-500' },
+                { value: 'own_company', label: 'Eigen bedrijf', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-amber-700', dotClass: 'bg-amber-500' },
+                { value: 'hidden', label: 'Verborgen', bgClass: 'bg-gray-50 border-gray-200', textClass: 'text-gray-500', dotClass: 'bg-gray-300' }
+            ];
+
+            const current = options.find(o => o.value === value) || options[2];
+
+            return (
+                <div className="relative">
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${current.bgClass} ${current.textClass} hover:shadow-sm`}
+                    >
+                        <span className={`w-2 h-2 rounded-full ${current.dotClass}`}></span>
+                        {current.label}
+                        <svg className={`w-3.5 h-3.5 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    {isOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)}></div>
+                            <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                                {options.map(option => (
+                                    <button
+                                        key={option.value}
+                                        onClick={() => { onChange(option.value); setIsOpen(false); }}
+                                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${value === option.value ? 'bg-gray-50' : ''}`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${option.dotClass}`}></span>
+                                        <span className="text-gray-700">{option.label}</span>
+                                        {value === option.value && (
+                                            <svg className="w-4 h-4 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        }
+
+        // Admin Panel Component - with full page editor
         function AdminPanel({ roles, setRoles }) {
             const [selectedRole, setSelectedRole] = useState(null);
             const [editForm, setEditForm] = useState({});
             const [expandedGroups, setExpandedGroups] = useState({});
+            const [expandedDossierComponents, setExpandedDossierComponents] = useState({});
             const [deleteConfirm, setDeleteConfirm] = useState(null);
             const [isNewRole, setIsNewRole] = useState(false);
+            const [activeTab, setActiveTab] = useState('data_inzage');
 
-            // Initialize role with data groups
+            // Initialize role with data groups and dossier settings
             const initializeRoleGroups = (role) => {
                 const groups = role.dataGroups || {};
                 dataGroups.forEach(g => {
@@ -690,37 +800,58 @@
                         groups[g.id] = 'hidden';
                     }
                 });
-                return { ...role, dataGroups: groups };
+
+                // Initialize dossier components with string values
+                const components = role.dossierComponents || {};
+                dossierComponents.forEach(c => {
+                    if (!components[c.id]) {
+                        components[c.id] = 'hidden'; // Default to hidden
+                    }
+                });
+
+                return {
+                    ...role,
+                    dataGroups: groups,
+                    dossierComponents: components
+                };
             };
 
-            const openRoleModal = (key) => {
+            const openRoleEditor = (key) => {
                 const roleData = initializeRoleGroups(roles[key]);
                 setSelectedRole(key);
                 setEditForm({ ...roleData });
                 setExpandedGroups({});
                 setIsNewRole(false);
+                setActiveTab('data_inzage');
             };
 
-            const openNewRoleModal = () => {
+            const openNewRoleEditor = () => {
                 const newRole = {
                     name: '',
                     description: '',
                     dataGroups: {},
-                    canReveal: false
+                    canReveal: false,
+                    dossierComponents: {}
                 };
                 dataGroups.forEach(g => {
                     newRole.dataGroups[g.id] = 'hidden';
+                });
+                dossierComponents.forEach(c => {
+                    newRole.dossierComponents[c.id] = 'hidden';
                 });
                 setSelectedRole('new');
                 setEditForm(newRole);
                 setExpandedGroups({});
                 setIsNewRole(true);
+                setActiveTab('data_inzage');
             };
 
-            const closeModal = () => {
+            const closeEditor = () => {
                 setSelectedRole(null);
                 setEditForm({});
                 setExpandedGroups({});
+                setExpandedDossierComponents({});
+                setActiveTab('data_inzage');
                 setIsNewRole(false);
             };
 
@@ -731,7 +862,7 @@
                 } else {
                     setRoles(prev => ({ ...prev, [selectedRole]: editForm }));
                 }
-                closeModal();
+                closeEditor();
             };
 
             const deleteRole = (key) => {
@@ -741,7 +872,7 @@
                     return updated;
                 });
                 setDeleteConfirm(null);
-                closeModal();
+                closeEditor();
             };
 
             const toggleGroupExpand = (groupId) => {
@@ -761,30 +892,387 @@
                 }));
             };
 
-            const getSensitivityBadge = (sensitivity) => {
-                const configs = {
-                    basis: { label: 'Basis', className: 'bg-gray-100 text-gray-600' },
-                    gevoelig: { label: 'Gevoelig', className: 'bg-orange-100 text-orange-700' },
-                    zeer_gevoelig: { label: 'Zeer gevoelig', className: 'bg-red-100 text-red-700' }
-                };
-                const config = configs[sensitivity] || configs.basis;
-                return (
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.className}`}>
-                        {config.label}
-                    </span>
-                );
-            };
-
-            const getVisibilityLabel = (value) => {
-                const mode = visibilityModes.find(m => m.value === value);
-                return mode ? mode.label : 'Niet tonen';
-            };
-
             const countVisibleGroups = (role) => {
                 if (!role.dataGroups) return 0;
                 return Object.values(role.dataGroups).filter(v => v !== 'hidden').length;
             };
 
+            // Full Screen Modal Editor
+            if (selectedRole) {
+                return (
+                    <div className="fixed inset-0 bg-gray-100 z-50 overflow-hidden flex flex-col">
+                        {/* Header */}
+                        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={closeEditor}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        {isNewRole ? 'Nieuwe rol aanmaken' : editForm.name || 'Rol bewerken'}
+                                    </h2>
+                                    <p className="text-sm text-gray-500">
+                                        {countVisibleGroups(editForm)}/{dataGroups.length} data-groepen zichtbaar
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                {!isNewRole && (
+                                    <button
+                                        onClick={() => setDeleteConfirm(selectedRole)}
+                                        className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                        Verwijderen
+                                    </button>
+                                )}
+                                <button
+                                    onClick={closeEditor}
+                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    Annuleren
+                                </button>
+                                <button
+                                    onClick={saveRole}
+                                    disabled={!editForm.name}
+                                    className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isNewRole ? 'Rol aanmaken' : 'Opslaan'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Content - Single Column Stacked Layout */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            <div className="max-w-4xl mx-auto space-y-6">
+                                {/* Section 1: Rol informatie */}
+                                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-gray-200">
+                                        <h3 className="text-sm font-semibold text-gray-900">Rol informatie</h3>
+                                    </div>
+                                    <div className="p-5">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Naam</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.name || ''}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    placeholder="Bijv. Project Manager"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Beschrijving</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.description || ''}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    placeholder="Korte beschrijving van de rol"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Section 2: Tabbed Content */}
+                                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                    {/* Tab Navigation */}
+                                    <div className="flex border-b border-gray-200">
+                                        <button
+                                            onClick={() => setActiveTab('data_inzage')}
+                                            className={`flex-1 px-5 py-3 text-sm font-medium transition-colors ${
+                                                activeTab === 'data_inzage'
+                                                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            Data inzage
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('dossier_weergave')}
+                                            className={`flex-1 px-5 py-3 text-sm font-medium transition-colors ${
+                                                activeTab === 'dossier_weergave'
+                                                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            Dossier weergave
+                                        </button>
+                                    </div>
+
+                                    {/* Tab 1: Data inzage */}
+                                    {activeTab === 'data_inzage' && (
+                                        <>
+                                            {/* Section Header with bulk actions */}
+                                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Welke data mag deze rol zien? • {countVisibleGroups(editForm)}/{dataGroups.length} groepen zichtbaar</p>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = {};
+                                                            dataGroups.forEach(g => updated[g.id] = 'hidden');
+                                                            setEditForm(prev => ({ ...prev, dataGroups: updated }));
+                                                        }}
+                                                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 rounded-md transition-colors"
+                                            >
+                                                Alles verbergen
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const updated = {};
+                                                    dataGroups.forEach(g => updated[g.id] = 'show');
+                                                    setEditForm(prev => ({ ...prev, dataGroups: updated }));
+                                                }}
+                                                className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                            >
+                                                Alles tonen
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Data Groups List */}
+                                    <div className="divide-y divide-gray-100">
+                                        {dataGroups.map(group => {
+                                            const sensitivityConfig = {
+                                                basis: { dot: 'bg-gray-300', badge: 'bg-gray-100 text-gray-600', label: 'Basis' },
+                                                gevoelig: { dot: 'bg-orange-400', badge: 'bg-orange-100 text-orange-700', label: 'Gevoelig' },
+                                                zeer_gevoelig: { dot: 'bg-red-400', badge: 'bg-red-100 text-red-700', label: 'Zeer gevoelig' }
+                                            };
+                                            const config = sensitivityConfig[group.sensitivity] || sensitivityConfig.basis;
+                                            const isExpanded = expandedGroups[group.id];
+
+                                            return (
+                                                <div key={group.id} className={`px-5 py-4 ${isExpanded ? 'bg-blue-50/50' : 'hover:bg-gray-50'} transition-colors`}>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3 flex-1">
+                                                            <span className={`w-2.5 h-2.5 rounded-full ${config.dot}`}></span>
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-medium text-gray-900">{group.name}</span>
+                                                                    <span className={`px-1.5 py-0.5 text-xs rounded ${config.badge}`}>{config.label}</span>
+                                                                </div>
+                                                                <p className="text-xs text-gray-500 mt-0.5">{group.description}</p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => toggleGroupExpand(group.id)}
+                                                                className={`p-1.5 rounded transition-colors ${isExpanded ? 'text-blue-600 bg-blue-100' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                                                            >
+                                                                <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="flex rounded-lg border border-gray-200 overflow-hidden ml-4">
+                                                            {visibilityModes.map(mode => {
+                                                                const isActive = (editForm.dataGroups?.[group.id] || 'hidden') === mode.value;
+                                                                return (
+                                                                    <button
+                                                                        key={mode.value}
+                                                                        onClick={() => updateGroupVisibility(group.id, mode.value)}
+                                                                        className={`px-4 py-2 text-sm font-medium transition-all ${
+                                                                            isActive ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                                                        } ${mode.value !== 'hidden' ? 'border-l border-gray-200' : ''}`}
+                                                                    >
+                                                                        {mode.label}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {isExpanded && (
+                                                        <div className="mt-3 ml-5 flex flex-wrap gap-1.5">
+                                                            {group.fields.map((field, idx) => (
+                                                                <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                                                    {field.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Extra rechten - inside Data inzage */}
+                                    <div className="border-t border-gray-200 px-5 py-4 bg-gray-50">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
+                                                <div>
+                                                    <p className="font-medium text-gray-900">Tijdelijk onthullen</p>
+                                                    <p className="text-xs text-gray-500">Mag gemaskeerde velden tijdelijk (5 sec) bekijken</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setEditForm(prev => ({ ...prev, canReveal: !prev.canReveal }))}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                    editForm.canReveal ? 'bg-blue-600' : 'bg-gray-300'
+                                                }`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                                    editForm.canReveal ? 'translate-x-6' : 'translate-x-1'
+                                                }`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                        </>
+                                    )}
+
+                                    {/* Tab 2: Dossier weergave - Redesigned with icons and dropdowns */}
+                                    {activeTab === 'dossier_weergave' && (
+                                        <>
+                                            {/* Section Header with bulk actions */}
+                                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-gray-700">
+                                                        {Object.values(editForm.dossierComponents || {}).filter(v => v !== 'hidden').length}/{dossierComponents.length}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">componenten zichtbaar</span>
+                                                </div>
+                                                <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-0.5">
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = {};
+                                                            dossierComponents.forEach(c => updated[c.id] = 'show');
+                                                            setEditForm(prev => ({ ...prev, dossierComponents: updated }));
+                                                        }}
+                                                        className="px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                                    >
+                                                        Tonen
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = {};
+                                                            dossierComponents.forEach(c => updated[c.id] = 'own_company');
+                                                            setEditForm(prev => ({ ...prev, dossierComponents: updated }));
+                                                        }}
+                                                        className="px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                                    >
+                                                        Eigen
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = {};
+                                                            dossierComponents.forEach(c => updated[c.id] = 'hidden');
+                                                            setEditForm(prev => ({ ...prev, dossierComponents: updated }));
+                                                        }}
+                                                        className="px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                                    >
+                                                        Geen
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Components List with Dropdown Chips and Info Tooltips */}
+                                            <div className="divide-y divide-gray-100">
+                                                {dossierComponents.map((component, index) => {
+                                                    const currentValue = editForm.dossierComponents?.[component.id] || 'hidden';
+                                                    const hasFields = component.fields && component.fields.length > 0;
+
+                                                    return (
+                                                        <div
+                                                            key={component.id}
+                                                            className="relative px-5 py-3.5 hover:bg-gray-50 transition-colors"
+                                                            style={{ zIndex: dossierComponents.length - index }}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                {/* Sensitivity dot */}
+                                                                {component.sensitive ? (
+                                                                    <span className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" title="Gevoelige data"></span>
+                                                                ) : (
+                                                                    <span className="w-2 h-2 flex-shrink-0"></span>
+                                                                )}
+
+                                                                {/* Content */}
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="font-medium text-gray-900 text-sm">{component.name}</p>
+                                                                        {/* Info icon with tooltip */}
+                                                                        {hasFields && (
+                                                                            <div className="relative group">
+                                                                                <button className="p-0.5 text-gray-400 hover:text-gray-600 rounded transition-colors">
+                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                                    </svg>
+                                                                                </button>
+                                                                                {/* Tooltip - appears below */}
+                                                                                <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-50">
+                                                                                    <div className="absolute left-3 bottom-full w-2 h-2 bg-gray-900 transform rotate-45 -mb-1"></div>
+                                                                                    <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                                                                                        <p className="font-medium mb-1">Velden ({component.fields.length})</p>
+                                                                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                                            {component.fields.map((field, idx) => (
+                                                                                                <span key={idx} className="px-1.5 py-0.5 bg-gray-700 rounded text-gray-200">
+                                                                                                    {field}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-xs text-gray-500 mt-0.5">{component.description}</p>
+                                                                </div>
+
+                                                                {/* Dropdown */}
+                                                                <div className="flex-shrink-0 relative z-10">
+                                                                    <StatusDropdown
+                                                                        value={currentValue}
+                                                                        onChange={(newValue) => setEditForm(prev => ({
+                                                                            ...prev,
+                                                                            dossierComponents: {
+                                                                                ...prev.dossierComponents,
+                                                                                [component.id]: newValue
+                                                                            }
+                                                                        }))}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Delete Confirmation */}
+                        {deleteConfirm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 mx-4">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Rol verwijderen?</h3>
+                                    <p className="text-sm text-gray-600 mb-6">
+                                        Weet je zeker dat je "{editForm.name}" wilt verwijderen?
+                                    </p>
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                                            Annuleren
+                                        </button>
+                                        <button onClick={() => deleteRole(deleteConfirm)} className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+                                            Verwijderen
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            // Roles Overview (Table View)
             return (
                 <div>
                     {/* Header */}
@@ -794,7 +1282,7 @@
                             <p className="text-sm text-gray-600">Beheer rollen en hun toegang tot data-groepen</p>
                         </div>
                         <button
-                            onClick={openNewRoleModal}
+                            onClick={openNewRoleEditor}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -821,7 +1309,7 @@
                                     <tr
                                         key={key}
                                         className="hover:bg-gray-50 cursor-pointer transition-colors"
-                                        onClick={() => openRoleModal(key)}
+                                        onClick={() => openRoleEditor(key)}
                                     >
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-gray-900">{roleData.name}</div>
@@ -850,7 +1338,7 @@
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); openRoleModal(key); }}
+                                                onClick={(e) => { e.stopPropagation(); openRoleEditor(key); }}
                                                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                                             >
                                                 Bewerken
@@ -861,180 +1349,6 @@
                             </tbody>
                         </table>
                     </div>
-
-                    {/* Role Edit Modal */}
-                    {selectedRole && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
-                            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                                {/* Modal Header */}
-                                <div className="p-6 border-b border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            {isNewRole ? 'Nieuwe rol aanmaken' : 'Rol bewerken'}
-                                        </h3>
-                                        <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Modal Content */}
-                                <div className="flex-1 overflow-y-auto p-6">
-                                    {/* Basic Info */}
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
-                                            <input
-                                                type="text"
-                                                value={editForm.name || ''}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                placeholder="Bijv. Project Manager"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Beschrijving</label>
-                                            <input
-                                                type="text"
-                                                value={editForm.description || ''}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                placeholder="Korte beschrijving"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Data Groups Section */}
-                                    <div className="mb-6">
-                                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Data-groepen toegang</h4>
-                                        <div className="space-y-2">
-                                            {dataGroups.map(group => (
-                                                <div key={group.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                                                    {/* Group Header */}
-                                                    <div className="flex items-center justify-between p-3 bg-gray-50">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="font-medium text-sm text-gray-900">{group.name}</span>
-                                                            {getSensitivityBadge(group.sensitivity)}
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <select
-                                                                value={editForm.dataGroups?.[group.id] || 'hidden'}
-                                                                onChange={(e) => updateGroupVisibility(group.id, e.target.value)}
-                                                                className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                            >
-                                                                {visibilityModes.map(mode => (
-                                                                    <option key={mode.value} value={mode.value}>{mode.label}</option>
-                                                                ))}
-                                                            </select>
-                                                            <button
-                                                                onClick={() => toggleGroupExpand(group.id)}
-                                                                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                                                                title="Toon velden"
-                                                            >
-                                                                <svg className={`w-4 h-4 transition-transform ${expandedGroups[group.id] ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Expandable Fields */}
-                                                    {expandedGroups[group.id] && (
-                                                        <div className="p-3 bg-white border-t border-gray-200">
-                                                            <p className="text-xs text-gray-500 mb-2">{group.description}</p>
-                                                            <div className="space-y-1">
-                                                                {group.fields.map((field, idx) => (
-                                                                    <div key={idx} className="flex items-center gap-2 text-sm">
-                                                                        <span className="w-2 h-2 bg-gray-300 rounded-full"></span>
-                                                                        <span className="text-gray-700">{field.name}</span>
-                                                                        <span className="text-gray-400">–</span>
-                                                                        <span className="text-gray-500 text-xs">{field.description}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Can Reveal Toggle */}
-                                    <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                                        <input
-                                            type="checkbox"
-                                            id="canReveal"
-                                            checked={editForm.canReveal || false}
-                                            onChange={(e) => setEditForm(prev => ({ ...prev, canReveal: e.target.checked }))}
-                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                        />
-                                        <label htmlFor="canReveal" className="text-sm text-gray-700">
-                                            Kan gemaskeerde velden tijdelijk onthullen (5 seconden)
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {/* Modal Footer */}
-                                <div className="p-6 border-t border-gray-200 bg-gray-50">
-                                    <div className="flex items-center justify-between">
-                                        {!isNewRole ? (
-                                            <button
-                                                onClick={() => setDeleteConfirm(selectedRole)}
-                                                className="text-sm text-red-600 hover:text-red-700 font-medium"
-                                            >
-                                                Verwijderen
-                                            </button>
-                                        ) : (
-                                            <div></div>
-                                        )}
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={closeModal}
-                                                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                            >
-                                                Annuleren
-                                            </button>
-                                            <button
-                                                onClick={saveRole}
-                                                disabled={!editForm.name}
-                                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isNewRole ? 'Aanmaken' : 'Opslaan'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Delete Confirmation */}
-                    {deleteConfirm && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
-                            <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Rol verwijderen?</h3>
-                                <p className="text-sm text-gray-600 mb-6">
-                                    Weet je zeker dat je de rol "{roles[deleteConfirm]?.name}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
-                                </p>
-                                <div className="flex justify-end gap-2">
-                                    <button
-                                        onClick={() => setDeleteConfirm(null)}
-                                        className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                    >
-                                        Annuleren
-                                    </button>
-                                    <button
-                                        onClick={() => deleteRole(deleteConfirm)}
-                                        className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
-                                    >
-                                        Verwijderen
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         }
