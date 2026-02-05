@@ -673,26 +673,121 @@
         // Visibility modes - simplified for segmented control
         const visibilityModes = [
             { value: 'hidden', label: 'Verbergen' },
-            { value: 'show', label: 'Alles tonen' },
-            { value: 'own_company', label: 'Eigen bedrijf' }
+            { value: 'own_company', label: 'Eigen bedrijf' },
+            { value: 'show', label: 'Tonen' }
         ];
 
-        // Dossier Components Configuration (Tab 2)
+        // Dossier Components Configuration (Tab 2) - with fields for expandable view
         const dossierComponents = [
-            { id: 'foto', name: 'Foto', description: 'Profielfoto van de medewerker' },
-            { id: 'identificatie_locatie', name: 'Identificatie (nationaliteit en vestiging)', description: 'Nationaliteit en vestigingsplaats' },
-            { id: 'identificatie_bsn', name: 'Identificatie (Documentnummer/BSN)', description: 'ID-nummer of BSN', sensitive: true },
-            { id: 'posted_worker', name: 'Posted Worker (WagwEU)', description: 'Gedetacheerde werknemersverklaring' },
-            { id: 'sociale_lasten', name: 'Sociale lasten', description: 'Sociale verzekeringen en lasten' },
-            { id: 'gewerkte_uren', name: 'Specificatie gewerkte uren', description: 'Overzicht van gewerkte uren' },
-            { id: 'vca_certificaten', name: 'VCA-certificaten', description: 'Veiligheidscertificaten' }
+            { id: 'foto', name: 'Foto', description: 'Profielfoto', fields: ['Pasfoto', 'ID-foto'] },
+            { id: 'identificatie_locatie', name: 'Identificatie (nationaliteit)', description: 'Nationaliteit & locatie', fields: ['Nationaliteit', 'Vestigingsland', 'Woonplaats'] },
+            { id: 'identificatie_bsn', name: 'Identificatie (BSN/Doc.nr)', description: 'ID-nummer of BSN', sensitive: true, fields: ['BSN', 'Documentnummer', 'Documenttype', 'Verloopdatum'] },
+            { id: 'posted_worker', name: 'Posted Worker (WagwEU)', description: 'Gedetacheerde werknemer', fields: ['A1-verklaring', 'Werkvergunning', 'Detacheringsovereenkomst', 'Loonstrook herkomstland'] },
+            { id: 'sociale_lasten', name: 'Sociale lasten', description: 'Sociale verzekeringen', fields: ['Verzekeringsland', 'A1-status', 'Premieplicht'] },
+            { id: 'gewerkte_uren', name: 'Gewerkte uren', description: 'Overzicht gewerkte uren', fields: ['Uren per dag', 'Totaal uren', 'Projecttoewijzing'] },
+            { id: 'vca_certificaten', name: 'VCA-certificaten', description: 'Veiligheidscertificaten', fields: ['VCA-basis', 'VCA-VOL', 'Verloopdatum', 'Certificaatnummer'] }
         ];
+
+        // Component Icon helper - renders SVG icons for dossier components
+        function ComponentIcon({ icon, className = "w-5 h-5" }) {
+            const icons = {
+                camera: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                ),
+                globe: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                    </svg>
+                ),
+                lock: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                ),
+                document: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                ),
+                money: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                ),
+                clock: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                ),
+                badge: (
+                    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                )
+            };
+            return icons[icon] || icons.document;
+        }
+
+        // Status Dropdown component for dossier components - sophisticated muted colors
+        function StatusDropdown({ value, onChange }) {
+            const [isOpen, setIsOpen] = useState(false);
+
+            const options = [
+                { value: 'show', label: 'Tonen', bgClass: 'bg-emerald-50 border-emerald-200', textClass: 'text-emerald-700', dotClass: 'bg-emerald-500' },
+                { value: 'own_company', label: 'Eigen bedrijf', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-amber-700', dotClass: 'bg-amber-500' },
+                { value: 'hidden', label: 'Verborgen', bgClass: 'bg-gray-50 border-gray-200', textClass: 'text-gray-500', dotClass: 'bg-gray-300' }
+            ];
+
+            const current = options.find(o => o.value === value) || options[2];
+
+            return (
+                <div className="relative">
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${current.bgClass} ${current.textClass} hover:shadow-sm`}
+                    >
+                        <span className={`w-2 h-2 rounded-full ${current.dotClass}`}></span>
+                        {current.label}
+                        <svg className={`w-3.5 h-3.5 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    {isOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)}></div>
+                            <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                                {options.map(option => (
+                                    <button
+                                        key={option.value}
+                                        onClick={() => { onChange(option.value); setIsOpen(false); }}
+                                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${value === option.value ? 'bg-gray-50' : ''}`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${option.dotClass}`}></span>
+                                        <span className="text-gray-700">{option.label}</span>
+                                        {value === option.value && (
+                                            <svg className="w-4 h-4 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        }
 
         // Admin Panel Component - with full page editor
         function AdminPanel({ roles, setRoles }) {
             const [selectedRole, setSelectedRole] = useState(null);
             const [editForm, setEditForm] = useState({});
             const [expandedGroups, setExpandedGroups] = useState({});
+            const [expandedDossierComponents, setExpandedDossierComponents] = useState({});
             const [deleteConfirm, setDeleteConfirm] = useState(null);
             const [isNewRole, setIsNewRole] = useState(false);
             const [activeTab, setActiveTab] = useState('data_inzage');
@@ -755,6 +850,7 @@
                 setSelectedRole(null);
                 setEditForm({});
                 setExpandedGroups({});
+                setExpandedDossierComponents({});
                 setActiveTab('data_inzage');
                 setIsNewRole(false);
             };
@@ -994,16 +1090,12 @@
                                                     </div>
 
                                                     {isExpanded && (
-                                                        <div className="mt-3 ml-5 pl-4 border-l-2 border-blue-200">
-                                                            <p className="text-xs text-gray-500 mb-2">Velden in deze groep:</p>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {group.fields.map((field, idx) => (
-                                                                    <div key={idx} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm">
-                                                                        <span className="text-gray-700">{field.name}</span>
-                                                                        <span className="text-gray-400 ml-1">– {field.description}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
+                                                        <div className="mt-3 ml-5 flex flex-wrap gap-1.5">
+                                                            {group.fields.map((field, idx) => (
+                                                                <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                                                    {field.name}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     )}
                                                 </div>
@@ -1036,82 +1128,115 @@
                                         </>
                                     )}
 
-                                    {/* Tab 2: Dossier weergave */}
+                                    {/* Tab 2: Dossier weergave - Redesigned with icons and dropdowns */}
                                     {activeTab === 'dossier_weergave' && (
                                         <>
                                             {/* Section Header with bulk actions */}
                                             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">
-                                                <div>
-                                                    <p className="text-xs text-gray-500">Welke dossier-componenten mag deze rol zien?</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-gray-700">
+                                                        {Object.values(editForm.dossierComponents || {}).filter(v => v !== 'hidden').length}/{dossierComponents.length}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">componenten zichtbaar</span>
                                                 </div>
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => {
-                                                            const updated = {};
-                                                            dossierComponents.forEach(c => updated[c.id] = 'hidden');
-                                                            setEditForm(prev => ({ ...prev, dossierComponents: updated }));
-                                                        }}
-                                                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 rounded-md transition-colors"
-                                                    >
-                                                        Alles verbergen
-                                                    </button>
+                                                <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-0.5">
                                                     <button
                                                         onClick={() => {
                                                             const updated = {};
                                                             dossierComponents.forEach(c => updated[c.id] = 'show');
                                                             setEditForm(prev => ({ ...prev, dossierComponents: updated }));
                                                         }}
-                                                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                                        className="px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
                                                     >
-                                                        Alles tonen
+                                                        Tonen
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = {};
+                                                            dossierComponents.forEach(c => updated[c.id] = 'own_company');
+                                                            setEditForm(prev => ({ ...prev, dossierComponents: updated }));
+                                                        }}
+                                                        className="px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                                    >
+                                                        Eigen
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = {};
+                                                            dossierComponents.forEach(c => updated[c.id] = 'hidden');
+                                                            setEditForm(prev => ({ ...prev, dossierComponents: updated }));
+                                                        }}
+                                                        className="px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                                    >
+                                                        Geen
                                                     </button>
                                                 </div>
                                             </div>
 
-                                            {/* Components List with Segmented Controls */}
+                                            {/* Components List with Dropdown Chips and Info Tooltips */}
                                             <div className="divide-y divide-gray-100">
-                                                {dossierComponents.map(component => {
+                                                {dossierComponents.map((component, index) => {
                                                     const currentValue = editForm.dossierComponents?.[component.id] || 'hidden';
+                                                    const hasFields = component.fields && component.fields.length > 0;
+
                                                     return (
-                                                        <div key={component.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-3 flex-1">
-                                                                    {component.sensitive ? (
-                                                                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                                                        </svg>
-                                                                    ) : (
-                                                                        <span className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center">
-                                                                            <span className="w-2 h-2 rounded-full bg-white"></span>
-                                                                        </span>
-                                                                    )}
-                                                                    <div className="flex-1">
-                                                                        <p className="font-medium text-gray-900">{component.name}</p>
-                                                                        <p className="text-xs text-gray-500 mt-0.5">{component.description}</p>
+                                                        <div
+                                                            key={component.id}
+                                                            className="relative px-5 py-3.5 hover:bg-gray-50 transition-colors"
+                                                            style={{ zIndex: dossierComponents.length - index }}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                {/* Sensitivity dot */}
+                                                                {component.sensitive ? (
+                                                                    <span className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" title="Gevoelige data"></span>
+                                                                ) : (
+                                                                    <span className="w-2 h-2 flex-shrink-0"></span>
+                                                                )}
+
+                                                                {/* Content */}
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="font-medium text-gray-900 text-sm">{component.name}</p>
+                                                                        {/* Info icon with tooltip */}
+                                                                        {hasFields && (
+                                                                            <div className="relative group">
+                                                                                <button className="p-0.5 text-gray-400 hover:text-gray-600 rounded transition-colors">
+                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                                    </svg>
+                                                                                </button>
+                                                                                {/* Tooltip - appears below */}
+                                                                                <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-50">
+                                                                                    <div className="absolute left-3 bottom-full w-2 h-2 bg-gray-900 transform rotate-45 -mb-1"></div>
+                                                                                    <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                                                                                        <p className="font-medium mb-1">Velden ({component.fields.length})</p>
+                                                                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                                            {component.fields.map((field, idx) => (
+                                                                                                <span key={idx} className="px-1.5 py-0.5 bg-gray-700 rounded text-gray-200">
+                                                                                                    {field}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
+                                                                    <p className="text-xs text-gray-500 mt-0.5">{component.description}</p>
                                                                 </div>
 
-                                                                <div className="flex rounded-lg border border-gray-200 overflow-hidden ml-4">
-                                                                    {visibilityModes.map(mode => {
-                                                                        const isActive = currentValue === mode.value;
-                                                                        return (
-                                                                            <button
-                                                                                key={mode.value}
-                                                                                onClick={() => setEditForm(prev => ({
-                                                                                    ...prev,
-                                                                                    dossierComponents: {
-                                                                                        ...prev.dossierComponents,
-                                                                                        [component.id]: mode.value
-                                                                                    }
-                                                                                }))}
-                                                                                className={`px-4 py-2 text-sm font-medium transition-all ${
-                                                                                    isActive ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                                                                                } ${mode.value !== 'hidden' ? 'border-l border-gray-200' : ''}`}
-                                                                            >
-                                                                                {mode.label}
-                                                                            </button>
-                                                                        );
-                                                                    })}
+                                                                {/* Dropdown */}
+                                                                <div className="flex-shrink-0 relative z-10">
+                                                                    <StatusDropdown
+                                                                        value={currentValue}
+                                                                        onChange={(newValue) => setEditForm(prev => ({
+                                                                            ...prev,
+                                                                            dossierComponents: {
+                                                                                ...prev.dossierComponents,
+                                                                                [component.id]: newValue
+                                                                            }
+                                                                        }))}
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         </div>
