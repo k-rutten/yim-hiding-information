@@ -57,31 +57,41 @@
                 name: "Administrator",
                 description: "Volledige toegang",
                 permissions: { personal: "full", employment: "full", compliance: "full", access: "full" },
-                canReveal: true
+                canReveal: true,
+                dossierMode: 'full',
+                dossierComponents: { foto: true, identificatie_locatie: true, identificatie_bsn: true, posted_worker: true, sociale_lasten: true, gewerkte_uren: true, vca_certificaten: true }
             },
             hr: {
                 name: "HR Manager",
                 description: "Persoons- en arbeidsgegevens",
                 permissions: { personal: "partial", employment: "full", compliance: "summary", access: "summary" },
-                canReveal: true
+                canReveal: true,
+                dossierMode: 'full',
+                dossierComponents: { foto: true, identificatie_locatie: true, identificatie_bsn: true, posted_worker: true, sociale_lasten: true, gewerkte_uren: true, vca_certificaten: true }
             },
             security: {
                 name: "Security Manager",
                 description: "Compliance en toegang",
                 permissions: { personal: "minimal", employment: "minimal", compliance: "full", access: "full" },
-                canReveal: true
+                canReveal: true,
+                dossierMode: 'limited',
+                dossierComponents: { foto: true, identificatie_locatie: true, identificatie_bsn: false, posted_worker: false, sociale_lasten: false, gewerkte_uren: false, vca_certificaten: true }
             },
             contractor: {
                 name: "Contractor",
                 description: "Beperkte toegang",
                 permissions: { personal: "hidden", employment: "minimal", compliance: "summary", access: "summary" },
-                canReveal: false
+                canReveal: false,
+                dossierMode: 'limited',
+                dossierComponents: { foto: true, identificatie_locatie: false, identificatie_bsn: false, posted_worker: false, sociale_lasten: false, gewerkte_uren: true, vca_certificaten: true }
             },
             guest: {
                 name: "Guest",
                 description: "Basis verificatie",
                 permissions: { personal: "hidden", employment: "hidden", compliance: "minimal", access: "minimal" },
-                canReveal: false
+                canReveal: false,
+                dossierMode: 'limited',
+                dossierComponents: { foto: false, identificatie_locatie: false, identificatie_bsn: false, posted_worker: false, sociale_lasten: false, gewerkte_uren: false, vca_certificaten: true }
             }
         };
 
@@ -672,6 +682,17 @@
             { value: 'own_company', label: 'Eigen bedrijf' }
         ];
 
+        // Dossier Components Configuration (Tab 2)
+        const dossierComponents = [
+            { id: 'foto', name: 'Foto', description: 'Profielfoto van de medewerker' },
+            { id: 'identificatie_locatie', name: 'Identificatie (nationaliteit en vestiging)', description: 'Nationaliteit en vestigingsplaats' },
+            { id: 'identificatie_bsn', name: 'Identificatie (Documentnummer/BSN)', description: 'ID-nummer of BSN', sensitive: true },
+            { id: 'posted_worker', name: 'Posted Worker (WagwEU)', description: 'Gedetacheerde werknemersverklaring' },
+            { id: 'sociale_lasten', name: 'Sociale lasten', description: 'Sociale verzekeringen en lasten' },
+            { id: 'gewerkte_uren', name: 'Specificatie gewerkte uren', description: 'Overzicht van gewerkte uren' },
+            { id: 'vca_certificaten', name: 'VCA-certificaten', description: 'Veiligheidscertificaten' }
+        ];
+
         // Admin Panel Component - with full page editor
         function AdminPanel({ roles, setRoles }) {
             const [selectedRole, setSelectedRole] = useState(null);
@@ -679,8 +700,9 @@
             const [expandedGroups, setExpandedGroups] = useState({});
             const [deleteConfirm, setDeleteConfirm] = useState(null);
             const [isNewRole, setIsNewRole] = useState(false);
+            const [activeTab, setActiveTab] = useState('data_inzage');
 
-            // Initialize role with data groups
+            // Initialize role with data groups and dossier settings
             const initializeRoleGroups = (role) => {
                 const groups = role.dataGroups || {};
                 dataGroups.forEach(g => {
@@ -688,7 +710,21 @@
                         groups[g.id] = 'hidden';
                     }
                 });
-                return { ...role, dataGroups: groups };
+
+                // Initialize dossier components
+                const components = role.dossierComponents || {};
+                dossierComponents.forEach(c => {
+                    if (components[c.id] === undefined) {
+                        components[c.id] = true; // Default to visible
+                    }
+                });
+
+                return {
+                    ...role,
+                    dataGroups: groups,
+                    dossierMode: role.dossierMode || 'full',
+                    dossierComponents: components
+                };
             };
 
             const openRoleEditor = (key) => {
@@ -697,6 +733,7 @@
                 setEditForm({ ...roleData });
                 setExpandedGroups({});
                 setIsNewRole(false);
+                setActiveTab('data_inzage');
             };
 
             const openNewRoleEditor = () => {
@@ -704,21 +741,28 @@
                     name: '',
                     description: '',
                     dataGroups: {},
-                    canReveal: false
+                    canReveal: false,
+                    dossierMode: 'full',
+                    dossierComponents: {}
                 };
                 dataGroups.forEach(g => {
                     newRole.dataGroups[g.id] = 'hidden';
+                });
+                dossierComponents.forEach(c => {
+                    newRole.dossierComponents[c.id] = true;
                 });
                 setSelectedRole('new');
                 setEditForm(newRole);
                 setExpandedGroups({});
                 setIsNewRole(true);
+                setActiveTab('data_inzage');
             };
 
             const closeEditor = () => {
                 setSelectedRole(null);
                 setEditForm({});
                 setExpandedGroups({});
+                setActiveTab('data_inzage');
                 setIsNewRole(false);
             };
 
@@ -847,22 +891,48 @@
                                     </div>
                                 </div>
 
-                                {/* Section 2: Data inzage (includes Extra rechten at bottom) */}
+                                {/* Section 2: Tabbed Content */}
                                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                                    {/* Section Header with bulk actions */}
-                                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-gray-900">Data inzage</h3>
-                                            <p className="text-xs text-gray-500 mt-0.5">Welke data mag deze rol zien? • {countVisibleGroups(editForm)}/{dataGroups.length} groepen zichtbaar</p>
-                                        </div>
-                                        <div className="flex gap-1">
-                                            <button
-                                                onClick={() => {
-                                                    const updated = {};
-                                                    dataGroups.forEach(g => updated[g.id] = 'hidden');
-                                                    setEditForm(prev => ({ ...prev, dataGroups: updated }));
-                                                }}
-                                                className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                    {/* Tab Navigation */}
+                                    <div className="flex border-b border-gray-200">
+                                        <button
+                                            onClick={() => setActiveTab('data_inzage')}
+                                            className={`flex-1 px-5 py-3 text-sm font-medium transition-colors ${
+                                                activeTab === 'data_inzage'
+                                                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            Data inzage
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('dossier_weergave')}
+                                            className={`flex-1 px-5 py-3 text-sm font-medium transition-colors ${
+                                                activeTab === 'dossier_weergave'
+                                                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            Dossier weergave
+                                        </button>
+                                    </div>
+
+                                    {/* Tab 1: Data inzage */}
+                                    {activeTab === 'data_inzage' && (
+                                        <>
+                                            {/* Section Header with bulk actions */}
+                                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">
+                                                <div>
+                                                    <p className="text-xs text-gray-500">Welke data mag deze rol zien? • {countVisibleGroups(editForm)}/{dataGroups.length} groepen zichtbaar</p>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = {};
+                                                            dataGroups.forEach(g => updated[g.id] = 'hidden');
+                                                            setEditForm(prev => ({ ...prev, dataGroups: updated }));
+                                                        }}
+                                                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 rounded-md transition-colors"
                                             >
                                                 Alles verbergen
                                             </button>
@@ -970,6 +1040,92 @@
                                             </button>
                                         </div>
                                     </div>
+                                        </>
+                                    )}
+
+                                    {/* Tab 2: Dossier weergave */}
+                                    {activeTab === 'dossier_weergave' && (
+                                        <div className="p-5">
+                                            {/* Dossier Mode Selection */}
+                                            <div className="mb-6">
+                                                <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Dossier modus</label>
+                                                <div className="flex rounded-lg border border-gray-200 overflow-hidden w-fit">
+                                                    <button
+                                                        onClick={() => setEditForm(prev => ({ ...prev, dossierMode: 'full' }))}
+                                                        className={`px-4 py-2 text-sm font-medium transition-all ${
+                                                            editForm.dossierMode === 'full' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        Volledig dossier
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditForm(prev => ({ ...prev, dossierMode: 'limited' }))}
+                                                        className={`px-4 py-2 text-sm font-medium transition-all border-l border-gray-200 ${
+                                                            editForm.dossierMode === 'limited' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        Beperkte set
+                                                    </button>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-2">
+                                                    {editForm.dossierMode === 'full'
+                                                        ? 'Alle componenten van het dossier zijn zichtbaar'
+                                                        : 'Selecteer welke componenten zichtbaar zijn'}
+                                                </p>
+                                            </div>
+
+                                            {/* Components List */}
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
+                                                    Componenten
+                                                    {editForm.dossierMode === 'full' && (
+                                                        <span className="ml-2 text-gray-400 font-normal normal-case">(alle actief bij volledig dossier)</span>
+                                                    )}
+                                                </label>
+                                                <div className={`border border-gray-200 rounded-lg divide-y divide-gray-100 ${editForm.dossierMode === 'full' ? 'opacity-50' : ''}`}>
+                                                    {dossierComponents.map(component => {
+                                                        const isEnabled = editForm.dossierMode === 'full' || editForm.dossierComponents?.[component.id];
+                                                        return (
+                                                            <div key={component.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+                                                                <div className="flex items-center gap-3">
+                                                                    {component.sensitive && (
+                                                                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                                        </svg>
+                                                                    )}
+                                                                    <div>
+                                                                        <p className="text-sm font-medium text-gray-900">{component.name}</p>
+                                                                        <p className="text-xs text-gray-500">{component.description}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (editForm.dossierMode === 'limited') {
+                                                                            setEditForm(prev => ({
+                                                                                ...prev,
+                                                                                dossierComponents: {
+                                                                                    ...prev.dossierComponents,
+                                                                                    [component.id]: !prev.dossierComponents?.[component.id]
+                                                                                }
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    disabled={editForm.dossierMode === 'full'}
+                                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                                        isEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                                                                    } ${editForm.dossierMode === 'full' ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                                                >
+                                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                                                        isEnabled ? 'translate-x-6' : 'translate-x-1'
+                                                                    }`} />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
