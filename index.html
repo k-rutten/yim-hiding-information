@@ -52,7 +52,7 @@
             }
         };
 
-        const roles = {
+        const initialRoles = {
             admin: {
                 name: "Administrator",
                 description: "Volledige toegang",
@@ -85,14 +85,17 @@
             }
         };
 
-        function App() {
+        function App({ roles, setRoles, currentTab, setCurrentTab }) {
             const [currentRole, setCurrentRole] = useState('admin');
             const [showHelp, setShowHelp] = useState(true);
             const [auditLog, setAuditLog] = useState([]);
             const [showAudit, setShowAudit] = useState(false);
             const [revealedFields, setRevealedFields] = useState({});
 
-            const role = roles[currentRole];
+            // Handle deleted role - reset to first available role
+            const roleKeys = Object.keys(roles);
+            const validRole = roles[currentRole] ? currentRole : roleKeys[0];
+            const role = roles[validRole];
 
             // Log field reveal
             const logFieldReveal = (category, field, value) => {
@@ -263,13 +266,37 @@
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <button 
-                                        onClick={() => setShowHelp(!showHelp)}
-                                        className="text-sm text-gray-600 hover:text-gray-900"
-                                    >
-                                        {showHelp ? 'Verberg' : 'Toon'} permissies
-                                    </button>
-                                    <button 
+                                    <div className="flex bg-gray-100 rounded-lg p-1">
+                                        <button
+                                            onClick={() => setCurrentTab('viewer')}
+                                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                                currentTab === 'viewer'
+                                                    ? 'bg-white text-gray-900 shadow-sm'
+                                                    : 'text-gray-600 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            Overzicht
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentTab('admin')}
+                                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                                currentTab === 'admin'
+                                                    ? 'bg-white text-gray-900 shadow-sm'
+                                                    : 'text-gray-600 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            Admin
+                                        </button>
+                                    </div>
+                                    {currentTab === 'viewer' && (
+                                        <button
+                                            onClick={() => setShowHelp(!showHelp)}
+                                            className="text-sm text-gray-600 hover:text-gray-900"
+                                        >
+                                            {showHelp ? 'Verberg' : 'Toon'} permissies
+                                        </button>
+                                    )}
+                                    <button
                                         onClick={() => setShowAudit(!showAudit)}
                                         className="relative px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
                                     >
@@ -286,18 +313,20 @@
                     </div>
 
                     <div className="max-w-6xl mx-auto px-6 py-8">
+                        {currentTab === 'viewer' && (
+                        <>
                         {/* Role Selector */}
                         <div className="mb-8">
                             <label className="block text-sm font-medium text-gray-700 mb-3">
                                 Bekijk als gebruikersrol:
                             </label>
-                            <div className="grid grid-cols-5 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                 {Object.entries(roles).map(([key, roleData]) => (
                                     <button
                                         key={key}
                                         onClick={() => setCurrentRole(key)}
                                         className={`p-4 rounded-xl border-2 text-left transition-all ${
-                                            currentRole === key
+                                            validRole === key
                                                 ? 'border-blue-600 bg-blue-50'
                                                 : 'border-gray-200 bg-white hover:border-gray-300'
                                         }`}
@@ -529,18 +558,360 @@
                                 <div>
                                     <h4 className="text-sm font-semibold text-gray-900 mb-1">Privacy & Audit Trail</h4>
                                     <p className="text-sm text-gray-600 leading-relaxed">
-                                        Gevoelige velden zijn standaard gemaskeerd. Geautoriseerde rollen kunnen data tijdelijk onthullen (5 seconden). 
+                                        Gevoelige velden zijn standaard gemaskeerd. Geautoriseerde rollen kunnen data tijdelijk onthullen (5 seconden).
                                         Alle ontsleutelingen worden gelogd in de audit trail voor compliance en security audits.
                                     </p>
                                 </div>
                             </div>
                         </div>
+                        </>
+                        )}
+
+                        {currentTab === 'admin' && (
+                            <AdminPanel roles={roles} setRoles={setRoles} />
+                        )}
                     </div>
                 </div>
             );
         }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        // Admin Panel Component
+        function AdminPanel({ roles, setRoles }) {
+            const [editingRole, setEditingRole] = useState(null);
+            const [editForm, setEditForm] = useState({});
+            const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+            const permissionOptions = [
+                { value: 'full', label: 'Volledig' },
+                { value: 'partial', label: 'Gedeeltelijk' },
+                { value: 'summary', label: 'Samenvatting' },
+                { value: 'minimal', label: 'Minimaal' },
+                { value: 'hidden', label: 'Verborgen' }
+            ];
+
+            const categoryLabels = {
+                personal: 'Persoonsgegevens',
+                employment: 'Arbeidsgegevens',
+                compliance: 'Compliance',
+                access: 'Toegangsrechten'
+            };
+
+            const startEdit = (key) => {
+                setEditingRole(key);
+                setEditForm({ ...roles[key] });
+            };
+
+            const startNew = () => {
+                setEditingRole('new');
+                setEditForm({
+                    name: '',
+                    description: '',
+                    permissions: { personal: 'minimal', employment: 'minimal', compliance: 'minimal', access: 'minimal' },
+                    canReveal: false
+                });
+            };
+
+            const saveRole = () => {
+                if (editingRole === 'new') {
+                    const key = editForm.name.toLowerCase().replace(/\s+/g, '_');
+                    setRoles(prev => ({ ...prev, [key]: editForm }));
+                } else {
+                    setRoles(prev => ({ ...prev, [editingRole]: editForm }));
+                }
+                setEditingRole(null);
+                setEditForm({});
+            };
+
+            const deleteRole = (key) => {
+                setRoles(prev => {
+                    const updated = { ...prev };
+                    delete updated[key];
+                    return updated;
+                });
+                setDeleteConfirm(null);
+            };
+
+            const PermissionBadge = ({ permission }) => {
+                const configs = {
+                    full: { label: 'Volledig', className: 'bg-green-50 text-green-700 border border-green-200' },
+                    partial: { label: 'Gedeeltelijk', className: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
+                    summary: { label: 'Samenvatting', className: 'bg-blue-50 text-blue-700 border border-blue-200' },
+                    minimal: { label: 'Minimaal', className: 'bg-orange-50 text-orange-700 border border-orange-200' },
+                    hidden: { label: 'Verborgen', className: 'bg-gray-50 text-gray-600 border border-gray-200' }
+                };
+                const config = configs[permission] || configs.full;
+                return (
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.className}`}>
+                        {config.label}
+                    </span>
+                );
+            };
+
+            return (
+                <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-900">Rollenbeheer</h2>
+                            <p className="text-sm text-gray-600">Beheer rollen en hun toegangsrechten</p>
+                        </div>
+                        <button
+                            onClick={startNew}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Nieuwe rol
+                        </button>
+                    </div>
+
+                    {/* Role Cards */}
+                    <div className="space-y-4">
+                        {Object.entries(roles).map(([key, roleData]) => (
+                            <div key={key} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                {editingRole === key ? (
+                                    // Edit Mode
+                                    <div className="p-6">
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.name}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Beschrijving</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.description}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Permissies</label>
+                                            <div className="grid grid-cols-4 gap-3">
+                                                {Object.entries(categoryLabels).map(([cat, label]) => (
+                                                    <div key={cat}>
+                                                        <label className="block text-xs text-gray-600 mb-1">{label}</label>
+                                                        <select
+                                                            value={editForm.permissions?.[cat] || 'minimal'}
+                                                            onChange={(e) => setEditForm(prev => ({
+                                                                ...prev,
+                                                                permissions: { ...prev.permissions, [cat]: e.target.value }
+                                                            }))}
+                                                            className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        >
+                                                            {permissionOptions.map(opt => (
+                                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <input
+                                                type="checkbox"
+                                                id={`canReveal-${key}`}
+                                                checked={editForm.canReveal || false}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, canReveal: e.target.checked }))}
+                                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                            />
+                                            <label htmlFor={`canReveal-${key}`} className="text-sm text-gray-700">
+                                                Kan gemaskeerde velden onthullen
+                                            </label>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                                            <button
+                                                onClick={() => setDeleteConfirm(key)}
+                                                className="text-sm text-red-600 hover:text-red-700 font-medium"
+                                            >
+                                                Verwijderen
+                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => { setEditingRole(null); setEditForm({}); }}
+                                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                                >
+                                                    Annuleren
+                                                </button>
+                                                <button
+                                                    onClick={saveRole}
+                                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                                >
+                                                    Opslaan
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // View Mode
+                                    <div className="p-6">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div>
+                                                <h3 className="text-base font-semibold text-gray-900">{roleData.name}</h3>
+                                                <p className="text-sm text-gray-600">{roleData.description}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => startEdit(key)}
+                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                            >
+                                                Bewerk
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {Object.entries(roleData.permissions).map(([cat, perm]) => (
+                                                <div key={cat} className="flex items-center gap-1.5">
+                                                    <span className="text-xs text-gray-500">{categoryLabels[cat]}:</span>
+                                                    <PermissionBadge permission={perm} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {roleData.canReveal && (
+                                            <div className="flex items-center gap-1 text-xs text-green-600">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                Kan velden onthullen
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* New Role Form */}
+                    {editingRole === 'new' && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
+                            <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Nieuwe rol aanmaken</h3>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.name}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Bijv. Project Manager"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Beschrijving</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.description}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Korte beschrijving van de rol"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Permissies</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {Object.entries(categoryLabels).map(([cat, label]) => (
+                                                <div key={cat}>
+                                                    <label className="block text-xs text-gray-600 mb-1">{label}</label>
+                                                    <select
+                                                        value={editForm.permissions?.[cat] || 'minimal'}
+                                                        onChange={(e) => setEditForm(prev => ({
+                                                            ...prev,
+                                                            permissions: { ...prev.permissions, [cat]: e.target.value }
+                                                        }))}
+                                                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    >
+                                                        {permissionOptions.map(opt => (
+                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="canReveal-new"
+                                            checked={editForm.canReveal || false}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, canReveal: e.target.checked }))}
+                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                        />
+                                        <label htmlFor="canReveal-new" className="text-sm text-gray-700">
+                                            Kan gemaskeerde velden onthullen
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200">
+                                    <button
+                                        onClick={() => { setEditingRole(null); setEditForm({}); }}
+                                        className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                    >
+                                        Annuleren
+                                    </button>
+                                    <button
+                                        onClick={saveRole}
+                                        disabled={!editForm.name}
+                                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Aanmaken
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Delete Confirmation */}
+                    {deleteConfirm && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
+                            <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Rol verwijderen?</h3>
+                                <p className="text-sm text-gray-600 mb-6">
+                                    Weet je zeker dat je de rol "{roles[deleteConfirm]?.name}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+                                </p>
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        onClick={() => setDeleteConfirm(null)}
+                                        className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                    >
+                                        Annuleren
+                                    </button>
+                                    <button
+                                        onClick={() => deleteRole(deleteConfirm)}
+                                        className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                                    >
+                                        Verwijderen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Root Component with state management
+        function Root() {
+            const [roles, setRoles] = useState(initialRoles);
+            const [currentTab, setCurrentTab] = useState('viewer');
+
+            return <App roles={roles} setRoles={setRoles} currentTab={currentTab} setCurrentTab={setCurrentTab} />;
+        }
+
+        ReactDOM.render(<Root />, document.getElementById('root'));
     </script>
 </body>
 </html>
