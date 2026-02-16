@@ -857,7 +857,18 @@
             const [deleteConfirm, setDeleteConfirm] = useState(null);
             const [isNewRole, setIsNewRole] = useState(false);
             const [activeTab, setActiveTab] = useState('data_inzage');
+            const [activeMenu, setActiveMenu] = useState('roles');
+            const [uiMode, setUiMode] = useState('dropdown'); // 'dropdown' or 'segmented'
             const { addToast } = useToast();
+
+            // Sidebar menu items for Beheer
+            const menuItems = [
+                { id: 'roles', label: 'Rollenbeheer' },
+                { id: 'users', label: 'Gebruikersbeheer' },
+                { id: 'access', label: 'Toegangsrechten' },
+                { id: 'events', label: 'Evenementenbeheer' },
+                { id: 'config', label: 'Configuratiebeheer' }
+            ];
 
             // Initialize role with data groups and dossier settings
             const initializeRoleGroups = (role) => {
@@ -1079,10 +1090,33 @@
                                     {/* Tab 1: Data inzage */}
                                     {activeTab === 'data_inzage' && (
                                         <>
-                                            {/* Section Header with bulk actions */}
+                                            {/* Section Header with UI Mode Toggle */}
                                             <div className="flex items-center justify-between px-5 py-4 border-b border-yim-100 bg-yim-50">
-                                                <div>
+                                                <div className="flex items-center gap-4">
                                                     <p className="text-xs text-yim-600 opacity-70">Welke data mag deze rol zien? • {countVisibleGroups(editForm)}/{dataGroups.length} groepen zichtbaar</p>
+                                                    {/* UI Mode Toggle */}
+                                                    <div className="flex rounded-lg border border-yim-200 overflow-hidden bg-white">
+                                                        <button
+                                                            onClick={() => setUiMode('dropdown')}
+                                                            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                                                                uiMode === 'dropdown'
+                                                                    ? 'bg-yim-500 text-white'
+                                                                    : 'text-yim-600 opacity-70 hover:bg-yim-50'
+                                                            }`}
+                                                        >
+                                                            Dropdown
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setUiMode('segmented')}
+                                                            className={`px-3 py-1.5 text-xs font-medium border-l border-yim-200 transition-colors ${
+                                                                uiMode === 'segmented'
+                                                                    ? 'bg-yim-500 text-white'
+                                                                    : 'text-yim-600 opacity-70 hover:bg-yim-50'
+                                                            }`}
+                                                        >
+                                                            Segmented
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div className="flex gap-1">
                                                     <button
@@ -1141,22 +1175,43 @@
                                                             </button>
                                                         </div>
 
-                                                        <div className="flex rounded-md border border-yim-200 overflow-hidden ml-4">
-                                                            {visibilityModes.map(mode => {
-                                                                const isActive = (editForm.dataGroups?.[group.id] || 'hidden') === mode.value;
-                                                                return (
-                                                                    <button
-                                                                        key={mode.value}
-                                                                        onClick={() => updateGroupVisibility(group.id, mode.value)}
-                                                                        className={`px-4 py-2 text-sm font-semibold transition-all ${
-                                                                            isActive ? 'bg-yim-500 text-white' : 'bg-white text-yim-600 hover:bg-yim-50'
-                                                                        } ${mode.value !== 'hidden' ? 'border-l border-yim-200' : ''}`}
-                                                                    >
-                                                                        {mode.label}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
+                                                        {/* Segmented Controls Mode */}
+                                                        {uiMode === 'segmented' && (
+                                                            <div className="flex rounded-md border border-yim-200 overflow-hidden ml-4">
+                                                                {visibilityModes.map(mode => {
+                                                                    const isActive = (editForm.dataGroups?.[group.id] || 'hidden') === mode.value;
+                                                                    return (
+                                                                        <button
+                                                                            key={mode.value}
+                                                                            onClick={() => updateGroupVisibility(group.id, mode.value)}
+                                                                            className={`px-4 py-2 text-sm font-semibold transition-all ${
+                                                                                isActive ? 'bg-yim-500 text-white' : 'bg-white text-yim-600 hover:bg-yim-50'
+                                                                            } ${mode.value !== 'hidden' ? 'border-l border-yim-200' : ''}`}
+                                                                        >
+                                                                            {mode.label}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Dropdown Mode */}
+                                                        {uiMode === 'dropdown' && (
+                                                            <div className="relative ml-4">
+                                                                <select
+                                                                    value={editForm.dataGroups?.[group.id] || 'hidden'}
+                                                                    onChange={(e) => updateGroupVisibility(group.id, e.target.value)}
+                                                                    className="appearance-none bg-white border border-yim-200 rounded-lg px-4 py-2 pr-10 text-sm font-medium text-yim-600 focus:ring-2 focus:ring-yim-500 focus:border-yim-500 cursor-pointer"
+                                                                >
+                                                                    <option value="hidden">Verborgen</option>
+                                                                    <option value="own_company">Eigen bedrijf</option>
+                                                                    <option value="show">Tonen</option>
+                                                                </select>
+                                                                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yim-300 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {isExpanded && (
@@ -1341,17 +1396,6 @@
                     </div>
                 );
             }
-
-            // Sidebar menu items for Beheer
-            const menuItems = [
-                { id: 'roles', label: 'Rollenbeheer' },
-                { id: 'users', label: 'Gebruikersbeheer' },
-                { id: 'access', label: 'Toegangsrechten' },
-                { id: 'events', label: 'Evenementenbeheer' },
-                { id: 'config', label: 'Configuratiebeheer' }
-            ];
-
-            const [activeMenu, setActiveMenu] = useState('roles');
 
             // Roles Overview (Table View) with Sidebar Layout
             return (
