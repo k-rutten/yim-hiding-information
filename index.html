@@ -241,22 +241,22 @@
                 return '••••••••';
             };
 
-            const DataField = ({ label, value, category, sensitive, fieldId }) => {
-                const permission = role.permissions[category];
-                const fieldKey = `${category}.${fieldId}`;
-                const isRevealed = revealedFields[fieldKey];
-                const masked = maskValue(value, permission, isRevealed);
-                
-                if (permission === 'hidden' || masked === null) return null;
+            const DataField = ({ label, value, sensitive, fieldId, groupId }) => {
+                // Check visibility from profile's dataGroups
+                const groupVisibility = profile?.dataGroups[groupId] || 'hidden';
+                if (groupVisibility === 'hidden') return null;
 
-                const isMasked = permission !== 'full' && masked !== value && !isRevealed;
-                const canRevealField = canReveal && isMasked && sensitive;
+                const fieldKey = `${groupId}.${fieldId}`;
+                const isRevealed = revealedFields[fieldKey];
+                const displayValue = maskSensitiveValue(value, sensitive, isRevealed);
+                const isMasked = sensitive && !isRevealed;
+                const canRevealField = canReveal && isMasked;
 
                 return (
                     <div className="flex justify-between items-start py-3 border-b border-yim-100 last:border-0 group">
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-yim-600 opacity-70 w-36">{label}</span>
-                            {sensitive && isMasked && (
+                            {isMasked && (
                                 <svg className="w-3.5 h-3.5 text-yim-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
@@ -273,11 +273,11 @@
                         </div>
                         <div className="flex items-center gap-2">
                             <span className={`text-sm font-medium ${isMasked ? 'text-yim-300' : 'text-yim-600'}`}>
-                                {masked}
+                                {displayValue}
                             </span>
                             {canRevealField && (
                                 <button
-                                    onClick={() => handleReveal(fieldKey, category, label, value)}
+                                    onClick={() => handleReveal(fieldKey, groupId, label, value)}
                                     className="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 text-xs font-medium text-yim-500 hover:text-yim-600 hover:bg-yim-50 rounded"
                                     title="Toon gedurende 5 seconden"
                                 >
@@ -289,29 +289,23 @@
                 );
             };
 
-            const PermissionBadge = ({ permission }) => {
-                const configs = {
-                    full: { label: 'Volledig', className: 'bg-yim-green/10 text-yim-green border border-yim-green/30' },
-                    partial: { label: 'Gedeeltelijk', className: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
-                    summary: { label: 'Samenvatting', className: 'bg-yim-50 text-yim-600 border border-yim-200' },
-                    minimal: { label: 'Minimaal', className: 'bg-yim-orange/10 text-yim-orange border border-yim-orange/30' },
-                    hidden: { label: 'Verborgen', className: 'bg-yim-50 text-yim-600 opacity-70 border border-yim-200' }
-                };
-
-                const config = configs[permission] || configs.full;
-
-                return (
-                    <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${config.className}`}>
-                        {config.label}
+            const VisibilityBadge = ({ visible }) => {
+                return visible ? (
+                    <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-yim-green/10 text-yim-green border border-yim-green/30">
+                        Zichtbaar
+                    </span>
+                ) : (
+                    <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-yim-50 text-yim-600 opacity-70 border border-yim-200">
+                        Verborgen
                     </span>
                 );
             };
 
-            const DataSection = ({ title, category, icon, children }) => {
-                const permission = role.permissions[category];
-                const isHidden = permission === 'hidden';
+            const DataSection = ({ title, groups, icon, children }) => {
+                // Section is hidden if ALL its data groups are hidden
+                const hasVisibleGroup = groups.some(g => profile?.dataGroups[g] === 'show');
 
-                if (isHidden) {
+                if (!hasVisibleGroup) {
                     return (
                         <div className="bg-white rounded-xl border border-yim-200 p-6 opacity-50">
                             <div className="flex items-center gap-3 mb-4">
