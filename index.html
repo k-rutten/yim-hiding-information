@@ -227,23 +227,18 @@
                 }, 5000);
             };
 
-            const maskValue = (value, permission, isRevealed = false) => {
-                if (isRevealed || permission === 'full') return value;
-                if (permission === 'hidden') return null;
-                if (permission === 'minimal') return '••••••••';
-                if (permission === 'partial') {
-                    if (typeof value === 'string') {
-                        if (value.includes('@')) {
-                            const [user, domain] = value.split('@');
-                            return `${user.substring(0, 2)}••••@${domain}`;
-                        }
-                        if (value.includes('+31')) return '+31 6 ••••••78';
-                        if (value.length > 8) return value.substring(0, 3) + '••••••';
+            // Mask sensitive values (no permission levels - purely based on sensitivity)
+            const maskSensitiveValue = (value, sensitive, isRevealed = false) => {
+                if (isRevealed || !sensitive) return value;
+                if (typeof value === 'string') {
+                    if (value.includes('@')) {
+                        const [user, domain] = value.split('@');
+                        return `${user.substring(0, 2)}••••@${domain}`;
                     }
-                    return '••••••••';
+                    if (value.includes('+31')) return '+31 6 ••••••78';
+                    if (value.length > 8) return value.substring(0, 3) + '••••••';
                 }
-                if (permission === 'summary') return '✓ Beschikbaar';
-                return value;
+                return '••••••••';
             };
 
             const DataField = ({ label, value, category, sensitive, fieldId }) => {
