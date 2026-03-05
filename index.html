@@ -1501,18 +1501,23 @@
                                 {concept === 'B' && (
                                 <div className="bg-white rounded-xl border border-yim-200 overflow-hidden">
                                     <div className="px-5 py-4">
-                                        <p className="text-xs font-medium text-yim-600 opacity-50 uppercase tracking-wide mb-2.5">Data scope</p>
-                                        <div className="flex gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs font-medium text-yim-600 opacity-50 uppercase tracking-wide">Data scope</p>
+                                        </div>
+                                        <div className="mt-2.5 inline-flex rounded-lg border border-yim-200 overflow-hidden">
                                             {[
-                                                { id: 'own_company', label: 'Eigen organisatie', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
-                                                { id: 'subcontractors', label: 'Onderaannemers', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' }
-                                            ].map(scope => {
-                                                const isActive = editForm.allowedScopes?.[scope.id] === true;
+                                                { id: 'own_company', label: 'Eigen organisatie' },
+                                                { id: 'subcontractors', label: 'Incl. onderaannemers' }
+                                            ].map(option => {
+                                                const isSelected = option.id === 'own_company'
+                                                    ? !editForm.allowedScopes?.subcontractors
+                                                    : !!editForm.allowedScopes?.subcontractors;
                                                 return (
-                                                    <button key={scope.id} onClick={() => setEditForm(prev => ({ ...prev, allowedScopes: { ...prev.allowedScopes, [scope.id]: !prev.allowedScopes?.[scope.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                        {isActive && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
-                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={scope.icon} /></svg>
-                                                        {scope.label}
+                                                    <button key={option.id} onClick={() => setEditForm(prev => ({
+                                                        ...prev,
+                                                        allowedScopes: { own_company: true, subcontractors: option.id === 'subcontractors' }
+                                                    }))} className={`px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-yim-500 text-white shadow-sm' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>
+                                                        {option.label}
                                                     </button>
                                                 );
                                             })}
