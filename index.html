@@ -1661,6 +1661,7 @@
                                             <div className="flex flex-wrap gap-2">
                                                 {dataGroups.map(group => {
                                                     const isActive = !!editForm.categories?.[group.id];
+                                                    const isSensitive = group.sensitivity === 'gevoelig' || group.sensitivity === 'zeer_gevoelig';
                                                     return (
                                                         <button key={group.id} onClick={() => setEditForm(prev => ({ ...prev, categories: { ...prev.categories, [group.id]: !prev.categories?.[group.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
                                                             {isActive && (
@@ -1668,6 +1669,7 @@
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                                                 </svg>
                                                             )}
+                                                            {isSensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${group.sensitivity === 'zeer_gevoelig' ? (isActive ? 'bg-red-300' : 'bg-yim-red') : (isActive ? 'bg-orange-300' : 'bg-yim-orange')}`}></span>}
                                                             {group.name}
                                                         </button>
                                                     );
@@ -1687,6 +1689,7 @@
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                                                 </svg>
                                                             )}
+                                                            {component.sensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-red-300' : 'bg-yim-red'}`}></span>}
                                                             {component.name}
                                                         </button>
                                                     );
@@ -1706,6 +1709,7 @@
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                                                 </svg>
                                                             )}
+                                                            {cert.sensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-red-300' : 'bg-yim-red'}`}></span>}
                                                             {cert.name}
                                                         </button>
                                                     );
@@ -1725,6 +1729,7 @@
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                                                 </svg>
                                                             )}
+                                                            {file.sensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-red-300' : 'bg-yim-red'}`}></span>}
                                                             {file.name}
                                                         </button>
                                                     );
