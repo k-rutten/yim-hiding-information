@@ -1555,6 +1555,34 @@
                                         <p className="text-xs text-yim-600 opacity-40 mt-3">{totalCatCount}/{totalCatMax} categorieën actief · {editForm.allowedScopes?.subcontractors ? 'Incl. onderaannemers' : 'Eigen organisatie'}</p>
                                     </div>
 
+                                    {/* Data scope - above groups for visibility */}
+                                    <div className="border-t border-yim-200 px-5 py-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-yim-600">Data scope</p>
+                                                <p className="text-xs text-yim-600 opacity-50 mt-0.5">Wiens data mag deze rol bekijken?</p>
+                                            </div>
+                                            <div className="inline-flex rounded-lg border border-yim-200 overflow-hidden">
+                                                {[
+                                                    { id: 'own_company', label: 'Eigen organisatie' },
+                                                    { id: 'subcontractors', label: 'Incl. onderaannemers' }
+                                                ].map(option => {
+                                                    const isSelected = option.id === 'own_company'
+                                                        ? !editForm.allowedScopes?.subcontractors
+                                                        : !!editForm.allowedScopes?.subcontractors;
+                                                    return (
+                                                        <button key={option.id} onClick={() => setEditForm(prev => ({
+                                                            ...prev,
+                                                            allowedScopes: { own_company: true, subcontractors: option.id === 'subcontractors' }
+                                                        }))} className={`px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-yim-500 text-white shadow-sm' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>
+                                                            {option.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Collapsible category groups */}
                                     <div className="divide-y divide-yim-100">
                                         {categoryGroups.map(group => {
@@ -1592,34 +1620,6 @@
                                                 </div>
                                             );
                                         })}
-                                    </div>
-
-                                    {/* Data scope - integrated */}
-                                    <div className="border-t border-yim-200 px-5 py-4">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium text-yim-600">Data scope</p>
-                                                <p className="text-xs text-yim-600 opacity-50 mt-0.5">Wiens data mag deze rol bekijken?</p>
-                                            </div>
-                                            <div className="inline-flex rounded-lg border border-yim-200 overflow-hidden">
-                                                {[
-                                                    { id: 'own_company', label: 'Eigen organisatie' },
-                                                    { id: 'subcontractors', label: 'Incl. onderaannemers' }
-                                                ].map(option => {
-                                                    const isSelected = option.id === 'own_company'
-                                                        ? !editForm.allowedScopes?.subcontractors
-                                                        : !!editForm.allowedScopes?.subcontractors;
-                                                    return (
-                                                        <button key={option.id} onClick={() => setEditForm(prev => ({
-                                                            ...prev,
-                                                            allowedScopes: { own_company: true, subcontractors: option.id === 'subcontractors' }
-                                                        }))} className={`px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-yim-500 text-white shadow-sm' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>
-                                                            {option.label}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
                                     </div>
 
                                     {/* canReveal toggle */}
