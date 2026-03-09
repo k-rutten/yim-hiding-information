@@ -2225,8 +2225,8 @@
                                                 const isSelected = editForm.sensitivityLevel === lvl.level;
                                                 return (
                                                     <button key={lvl.id} onClick={() => {
-                                                        const newCats = getCategoriesForLevel(lvl.level, editForm.exceptions);
-                                                        setEditForm(prev => ({ ...prev, sensitivityLevel: lvl.level, ...newCats }));
+                                                        const newCats = getCategoriesForLevel(lvl.level, {});
+                                                        setEditForm(prev => ({ ...prev, sensitivityLevel: lvl.level, exceptions: {}, ...newCats }));
                                                     }} className={`flex-1 px-2 py-3 text-center transition-all ${i > 0 ? 'border-l border-yim-200' : ''}`}
                                                     style={isSelected ? {backgroundColor: lvl.color + '15', borderColor: lvl.color} : {}}>
                                                         <div className="text-xs font-semibold" style={{color: isSelected ? lvl.color : '#6B7280'}}>{lvl.name}</div>
@@ -2298,17 +2298,34 @@
                                                                         <div key={item.id} className="relative group">
                                                                         <button onClick={() => {
                                                                             const newVal = !isActive;
-                                                                            const newLevelDefault = CATEGORY_MIN_LEVEL[item.id] <= (editForm.sensitivityLevel || 1);
                                                                             setEditForm(prev => {
-                                                                                const newExceptions = { ...prev.exceptions };
-                                                                                if (!newExceptions[group.formKey]) newExceptions[group.formKey] = {};
-                                                                                if (newVal === newLevelDefault) {
-                                                                                    delete newExceptions[group.formKey][item.id];
-                                                                                    if (Object.keys(newExceptions[group.formKey]).length === 0) delete newExceptions[group.formKey];
-                                                                                } else {
-                                                                                    newExceptions[group.formKey][item.id] = newVal;
-                                                                                }
-                                                                                return { ...prev, exceptions: newExceptions, [group.formKey]: { ...prev[group.formKey], [item.id]: newVal } };
+                                                                                // 1. Build desired active set: current state + this toggle
+                                                                                const desired = {};
+                                                                                ['categories', 'dossierCategories', 'certCategories', 'fileCategories'].forEach(key => {
+                                                                                    Object.entries(prev[key] || {}).forEach(([id, v]) => { desired[id] = v; });
+                                                                                });
+                                                                                desired[item.id] = newVal;
+                                                                                // 2. Find minimum level that covers all active categories
+                                                                                let newLevel = 1;
+                                                                                Object.entries(desired).forEach(([id, active]) => {
+                                                                                    if (active && CATEGORY_MIN_LEVEL[id]) newLevel = Math.max(newLevel, CATEGORY_MIN_LEVEL[id]);
+                                                                                });
+                                                                                // 3. Compute baseline for that level, then derive new exceptions
+                                                                                const baseline = getCategoriesForLevel(newLevel);
+                                                                                const allBaseline = { ...baseline.categories, ...baseline.dossierCategories, ...baseline.certCategories, ...baseline.fileCategories };
+                                                                                const newExceptions = {};
+                                                                                const formKeyMap = { categories: 'categories', dossierCategories: 'dossierCategories', certCategories: 'certCategories', fileCategories: 'fileCategories' };
+                                                                                Object.entries(formKeyMap).forEach(([fk]) => {
+                                                                                    Object.entries(baseline[fk] || {}).forEach(([id, baseVal]) => {
+                                                                                        if (desired[id] !== undefined && desired[id] !== baseVal) {
+                                                                                            if (!newExceptions[fk]) newExceptions[fk] = {};
+                                                                                            newExceptions[fk][id] = desired[id];
+                                                                                        }
+                                                                                    });
+                                                                                });
+                                                                                // 4. Rebuild full category state from level + exceptions
+                                                                                const newCats = getCategoriesForLevel(newLevel, newExceptions);
+                                                                                return { ...prev, sensitivityLevel: newLevel, exceptions: newExceptions, ...newCats };
                                                                             });
                                                                         }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive
                                                                             ? isException ? 'bg-yim-green text-white border-yim-green shadow-sm' : 'bg-yim-500 text-white border-yim-500 shadow-sm'
