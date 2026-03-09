@@ -1331,28 +1331,18 @@
 
         // ============ DualListSelector Component ============
         function DualListSelector({ items, selected, onChange, maxHeight = 180 }) {
-            const [searchL, setSearchL] = useState('');
-            const [searchR, setSearchR] = useState('');
             const available = items.filter(i => !selected.includes(i.id));
             const selectedItems = items.filter(i => selected.includes(i.id));
-            const filteredAvail = searchL ? available.filter(i => i.name.toLowerCase().includes(searchL.toLowerCase())) : available;
-            const filteredSel = searchR ? selectedItems.filter(i => i.name.toLowerCase().includes(searchR.toLowerCase())) : selectedItems;
 
             const addItem = (id) => onChange([...selected, id]);
             const removeItem = (id) => onChange(selected.filter(x => x !== id));
-            const addAll = () => onChange([...selected, ...available.map(i => i.id)]);
-            const removeAll = () => onChange([]);
 
-            const ListCol = ({ title, count, total, items: listItems, onClickItem, icon, search, setSearch, actionLabel, onAction }) => (
+            const ListCol = ({ title, count, total, items: listItems, onClickItem, icon }) => (
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xs font-semibold text-yim-500 uppercase tracking-wide">{title}</span>
                         <span className="text-xs text-yim-400">{count}/{total}</span>
                     </div>
-                    {items.length > 8 && (
-                        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                            placeholder="Zoeken..." className="w-full px-2 py-1 text-xs border border-yim-200 rounded mb-1.5 focus:outline-none focus:border-yim-400" />
-                    )}
                     <div className="border border-yim-200 rounded-lg bg-white" style={{ maxHeight, overflowY: 'auto' }}>
                         {listItems.length === 0 ? (
                             <div className="px-3 py-4 text-xs text-yim-400 text-center italic">Geen items</div>
@@ -1364,22 +1354,15 @@
                             </div>
                         ))}
                     </div>
-                    {total > 0 && (
-                        <button onClick={onAction} className="mt-1.5 text-xs text-yim-500 hover:text-yim-700 font-medium transition-colors">
-                            {actionLabel}
-                        </button>
-                    )}
                 </div>
             );
 
             return (
                 <div className="flex gap-3">
                     <ListCol title="Beschikbaar" count={available.length} total={items.length}
-                        items={filteredAvail} onClickItem={addItem} icon="→" search={searchL} setSearch={setSearchL}
-                        actionLabel={`Alles toevoegen (${available.length})`} onAction={addAll} />
+                        items={available} onClickItem={addItem} icon="→" />
                     <ListCol title="Geselecteerd" count={selectedItems.length} total={items.length}
-                        items={filteredSel} onClickItem={removeItem} icon="←" search={searchR} setSearch={setSearchR}
-                        actionLabel="Alles verwijderen" onAction={removeAll} />
+                        items={selectedItems} onClickItem={removeItem} icon="←" />
                 </div>
             );
         }
