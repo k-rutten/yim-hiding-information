@@ -203,41 +203,271 @@
             arbeidsovereenkomst: 4, loonstroken: 4, id_kopie: 4
         };
 
-        // ============ CONCEPT D: Role Personas ============
-        const PERSONAS = [
-            { id: 'compliance_officer', name: 'Compliance Officer', purpose: 'Wettelijke naleving en audit (AVG Art. 6.1c)', base: 'full' },
-            { id: 'hr_admin', name: 'HR Beheerder', purpose: 'Arbeidsrelatiebeheer en personeelsadministratie (AVG Art. 6.1b)', base: 'standard' },
-            { id: 'site_manager', name: 'Locatiebeheerder', purpose: 'Veiligheid en toegangscontrole op de werklocatie (AVG Art. 6.1f)', base: 'operational' },
-            { id: 'external', name: 'Externe Partij', purpose: 'Beperkte verificatie voor projectsamenwerking (AVG Art. 6.1f)', base: 'minimal' }
+        // ============ ROLE SETTINGS DATA (from Figma design) ============
+        const PROCESSEN = [
+            { id: 'gebruiker', name: 'Gebruiker' }, { id: 'bedrijf', name: 'Bedrijf' },
+            { id: 'contractor', name: 'Contractor' }, { id: 'bezoeker', name: 'Bezoeker' },
+            { id: 'medewerker', name: 'Medewerker' }
         ];
+        const CONTRACTOR_TYPES = [
+            { id: 'medewerker_jinc', name: 'Medewerker JINC' },
+            { id: 'contractor_alles', name: 'Contractor - alles aan' }
+        ];
+        const TAKEN = [
+            { id: 'aanmelden', name: 'Aanmelden' },
+            { id: 'autorisaties_bewerken', name: 'Autorisaties bewerken' },
+            { id: 'deactivatie_beoordelen', name: 'Deactivatie beoordelen' },
+            { id: 'dossier_bekijken', name: 'Dossier bekijken' },
+            { id: 'dossier_beoordelen', name: 'Dossier beoordelen' },
+            { id: 'dossier_bewerken', name: 'Dossier bewerken' },
+            { id: 'dossier_registreren', name: 'Dossier registreren' },
+            { id: 'foto_upload', name: 'Foto upload' },
+            { id: 'examen_afronden', name: 'Handmatig examen afronden' },
+            { id: 'heractivatie_beoordelen', name: 'Heractivatie beoordelen' },
+            { id: 'identificatie_aanvragen', name: 'Identificatie aanvragen' },
+            { id: 'identificatie_beoordelen', name: 'Identificatie beoordelen' },
+            { id: 'identificatie_intrekken', name: 'Identificatie intrekken' },
+            { id: 'contract_beeindigen', name: 'Inhuur-/Contractperiode beëindigen' },
+            { id: 'elearning_uitnodiging', name: 'Stuur E-learning uitnodiging' },
+            { id: 'uploaden', name: 'Uploaden' },
+            { id: 'examenpoging_toevoegen', name: 'Voeg examenpoging toe' },
+            { id: 'autorisaties_beoordelen', name: 'Autorisaties beoordelen' }
+        ];
+        const DOSSIERNIVEAU = [
+            { id: 'aanmeldingen', name: 'Aanmeldingen' },
+            { id: 'autorisaties', name: 'Autorisaties' },
+            { id: 'certificates', name: 'Certificates' },
+            { id: 'dossier_informatie', name: 'Dossier informatie' },
+            { id: 'evenementen', name: 'Evenementen' },
+            { id: 'gebruikers_bedrijf', name: 'Gebruikers bedrijf' },
+            { id: 'geschiedenis', name: 'Geschiedenis' },
+            { id: 'identificaties', name: 'Identificaties' },
+            { id: 'personen_bedrijf', name: 'Personen bedrijf' }
+        ];
+        const BESTAND_TOEGANGEN = [
+            { id: 'certificaten', name: 'Certificaten' },
+            { id: 'persoonlijk', name: 'Persoonlijk' }
+        ];
+        const LOCATIES = [
+            { id: 'abc', name: 'ABC' }, { id: 'botlek', name: 'Botlek Rotterdam' },
+            { id: 'bp_raffinaderij', name: 'BP Raffinaderij Poort 1' }, { id: 'def', name: 'DEF' },
+            { id: 'dh_bazalt', name: 'Den Haag - The Zone - Bazalt' }, { id: 'group', name: 'Group' },
+            { id: 'dh_coupry', name: 'Den Haag - The Zone - Coupry' }, { id: 'advocaten', name: 'Advocaten' },
+            { id: 'dh_jinc', name: 'Den Haag - The Zone - JINC' }, { id: 'dh_nibc', name: 'Den Haag - The Zone - NIBC' },
+            { id: 'emmen', name: 'Emmen' }, { id: 'ghi', name: 'GHI' },
+            { id: 'hoogeveen', name: 'Hoogeveen' }, { id: 'jkl', name: 'JKL' },
+            { id: 'oss', name: 'Oss' }, { id: 'stadskanaal', name: 'Stadskanaal' },
+            { id: 'winkel', name: 'Winkel' }, { id: 'barendrecht', name: 'Barendrecht' },
+            { id: 'diemen', name: 'Diemen' }, { id: 'rotterdam', name: 'Rotterdam' },
+            { id: 'schiphol', name: 'Schiphol' }
+        ];
+        const DAGTIJDSCHEMAS = [
+            { id: 'overwerk', name: 'Overwerk' },
+            { id: '24_7', name: '24/7' },
+            { id: 'kantooruren', name: 'Kantooruren' }
+        ];
+        const ZONES = [
+            { id: 'nibc_compliance', name: 'The Zone - NIBC - Compliance & Legal' },
+            { id: 'nibc_facility', name: 'The Zone - NIBC - Facility & Services' },
+            { id: 'nibc_hr', name: 'The Zone - NIBC - Human Resources' },
+            { id: 'nibc_it_digital', name: 'The Zone - NIBC - IT & Digital' },
+            { id: 'nibc_office', name: 'The Zone - NIBC - Office Services' },
+            { id: 'nibc_security', name: 'The Zone - NIBC - Security & Safety' },
+            { id: 'vip', name: 'VIP' }, { id: 'facilitair', name: 'Facilitair' },
+            { id: 'schoonmaak', name: 'Schoonmaak' }, { id: 'nibc_it', name: 'The Zone - NIBC - IT' },
+            { id: 'zone_a', name: 'Zone A' }, { id: 'zone_noord', name: 'Zone Noord' },
+            { id: 'zone_oost', name: 'Zone Oost' }, { id: 'zone_west', name: 'Zone West' },
+            { id: 'zone_zuid', name: 'Zone Zuid' }
+        ];
+        const OVERZICHTEN = [
+            { id: 'aanwezigheid', name: 'Aanwezigheidsregistratie' },
+            { id: 'accreditaties', name: 'Accreditaties' },
+            { id: 'bedrijven', name: 'Bedrijven' },
+            { id: 'bezoekers', name: 'Bezoekers' },
+            { id: 'contractors', name: 'Contractors' },
+            { id: 'id_accreditaties', name: 'Identificatie accreditaties' },
+            { id: 'id_orders', name: 'Identificatie orders' },
+            { id: 'id_print', name: 'Identificatie print' },
+            { id: 'id_meervoudig', name: 'Identificaties meervoudig' },
+            { id: 'medewerkers', name: 'Medewerkers' },
+            { id: 'verwachte_bezoekers', name: 'Verwachte bezoekers' }
+        ];
+        const RAPPORTEN = [
+            { id: 'temp_report', name: 'temp-report' },
+            { id: 'aanwezigheid_rapport', name: 'Aanwezigheid' },
+            { id: 'calamiteiten', name: 'Calamiteiten' },
+            { id: 'tijdregistratie', name: 'Tijdregistratie' },
+            { id: 'rapportage_zones', name: 'Rapportage zones' }
+        ];
+        const VEROUDERDE_RAPPORTEN = [
+            { id: 'vr_aanwezigheid', name: 'Aanwezigheid' },
+            { id: 'vr_calamiteiten', name: 'Calamiteiten' }
+        ];
+        const BEHEERRECHTEN = [
+            { id: 'admin_certificatie', name: 'Admin toegang certificatie' },
+            { id: 'administrator', name: 'Administrator' },
+            { id: 'afdelingen', name: 'Afdelingen' },
+            { id: 'afwijsredenen', name: 'Afwijsredenen' },
+            { id: 'autorisatie_rollen', name: 'Autorisatie rollen' },
+            { id: 'bedrijven_deactiveren', name: 'Bedrijven deactiveren' },
+            { id: 'bedrijven_heractiveren', name: 'Bedrijven heractiveren' },
+            { id: 'bedrijvenstructuur', name: 'Bedrijvenstructuur' },
+            { id: 'bezoek_locaties', name: 'Bezoek locaties' },
+            { id: 'bezoekredenen', name: 'Bezoekredenen' },
+            { id: 'delegeren', name: 'Delegeren' },
+            { id: 'elearning_verbindingen', name: 'Elearning verbindingen' },
+            { id: 'evenement_autorisaties', name: 'Evenement Autorisaties' },
+            { id: 'evenement_typen', name: 'Evenement typen' },
+            { id: 'foto_controle', name: 'Foto controle' },
+            { id: 'foto_instructies', name: 'Foto instructies' },
+            { id: 'functies', name: 'Functies' },
+            { id: 'gebruikers', name: 'Gebruikers' },
+            { id: 'gebruikersrollen', name: 'Gebruikersrollen' },
+            { id: 'gedeactiveerde_bedrijven', name: 'Gedeactiveerde bedrijven bekijken' },
+            { id: 'identificatie_types', name: 'Identificatie types' },
+            { id: 'id_vervangredenen', name: 'Identificatie vervangredenen' },
+            { id: 'id_aanvraag_config', name: 'Identificatieaanvraag configuratie' },
+            { id: 'id_aanvraag_locaties', name: 'Identificatieaanvraag locaties' },
+            { id: 'contract_limiet', name: 'Inhuur-/Contractperiode limiet' },
+            { id: 'koppelen_identifiers', name: 'Koppelen/Ontkoppelen identifiers' },
+            { id: 'nummerreeksen', name: 'Nummerreeksen' },
+            { id: 'onboarding_regels', name: 'Onboarding regels' },
+            { id: 'ongeluk_frequentie', name: 'Ongeluk frequentie' },
+            { id: 'rapportages', name: 'Rapportages' },
+            { id: 'tenant_bedrijf', name: 'Tenant bedrijf' },
+            { id: 'toegangsregel_verlengen', name: 'Toegangsregel set verlengen' },
+            { id: 'toegangsregel_sets', name: 'Toegangsregel sets' },
+            { id: 'toegangsregelautorisaties', name: 'Toegangsregelautorisaties' }
+        ];
+
+        // Settings sections configuration for UI (flat form layout matching Figma)
+        const ROLE_SETTINGS_SECTIONS = [
+            { id: 'procesrechten', name: 'Procesrechten', header: true, rows: [
+                { id: 'processen', name: 'Processen', items: PROCESSEN },
+                { id: 'contractor_types', name: 'Contractor types', items: CONTRACTOR_TYPES },
+                { id: 'taken', name: 'Taken', items: TAKEN },
+                { id: 'dossierniveau', name: 'Dossierniveau', items: DOSSIERNIVEAU },
+                { id: 'bestand_toegangen', name: 'Bestand toegangen', items: BESTAND_TOEGANGEN }
+            ]},
+            { id: 'standalone_loc', rows: [
+                { id: 'locaties', name: 'Locaties', items: LOCATIES },
+                { id: 'dagtijdschemas', name: "Dagtijdschema's", items: DAGTIJDSCHEMAS },
+                { id: 'zones', name: 'Zones', items: ZONES }
+            ]},
+            { id: 'overzichten_section', name: 'Overzichten', header: true, rows: [
+                { id: 'overzichten', name: 'Overzichten', items: OVERZICHTEN }
+            ]},
+            { id: 'rapporten_section', name: 'Rapporten', header: true, rows: [
+                { id: 'rapporten', name: 'Rapporten', items: RAPPORTEN },
+                { id: 'verouderde_rapporten', name: 'Verouderde rapporten', items: VEROUDERDE_RAPPORTEN }
+            ]},
+            { id: 'beheerrechten_section', name: 'Beheerrechten', header: true, rows: [
+                { id: 'beheerrechten', name: 'Beheerrechten', items: BEHEERRECHTEN }
+            ]}
+        ];
+
+        // Factory functions for role settings
+        const createDefaultRoleSettings = () => ({
+            processen: [], contractor_types: [], taken: [], dossierniveau: [],
+            bestand_toegangen: [], locaties: [], dagtijdschemas: [], zones: [],
+            overzichten: [], rapporten: [], verouderde_rapporten: [], beheerrechten: [],
+            delegatie: false, accrediteer_alle_bedrijven: false
+        });
+        const createAdminRoleSettings = () => ({
+            processen: PROCESSEN.map(p => p.id),
+            contractor_types: CONTRACTOR_TYPES.map(p => p.id),
+            taken: TAKEN.map(p => p.id),
+            dossierniveau: DOSSIERNIVEAU.map(p => p.id),
+            bestand_toegangen: BESTAND_TOEGANGEN.map(p => p.id),
+            locaties: LOCATIES.map(p => p.id),
+            dagtijdschemas: DAGTIJDSCHEMAS.map(p => p.id),
+            zones: ZONES.map(p => p.id),
+            overzichten: OVERZICHTEN.map(p => p.id),
+            rapporten: RAPPORTEN.map(p => p.id),
+            verouderde_rapporten: VEROUDERDE_RAPPORTEN.map(p => p.id),
+            beheerrechten: BEHEERRECHTEN.map(p => p.id),
+            delegatie: true, accrediteer_alle_bedrijven: true
+        });
+        const createHRRoleSettings = () => ({
+            processen: ['gebruiker', 'medewerker', 'contractor'],
+            contractor_types: ['medewerker_jinc'],
+            taken: ['aanmelden', 'dossier_bekijken', 'dossier_beoordelen', 'dossier_bewerken', 'dossier_registreren', 'foto_upload', 'identificatie_aanvragen', 'identificatie_beoordelen', 'contract_beeindigen', 'elearning_uitnodiging'],
+            dossierniveau: ['aanmeldingen', 'autorisaties', 'certificates', 'dossier_informatie', 'evenementen', 'gebruikers_bedrijf', 'geschiedenis', 'identificaties', 'personen_bedrijf'],
+            bestand_toegangen: ['certificaten', 'persoonlijk'],
+            locaties: LOCATIES.map(p => p.id),
+            dagtijdschemas: DAGTIJDSCHEMAS.map(p => p.id),
+            zones: [],
+            overzichten: ['aanwezigheid', 'medewerkers', 'contractors', 'bedrijven'],
+            rapporten: ['aanwezigheid_rapport', 'tijdregistratie'],
+            verouderde_rapporten: [],
+            beheerrechten: ['gebruikers', 'gebruikersrollen', 'afdelingen', 'functies'],
+            delegatie: true, accrediteer_alle_bedrijven: false
+        });
+        const createSecurityRoleSettings = () => ({
+            processen: ['contractor', 'bezoeker'],
+            contractor_types: [],
+            taken: ['aanmelden', 'dossier_bekijken', 'foto_upload', 'identificatie_aanvragen', 'identificatie_beoordelen', 'autorisaties_beoordelen'],
+            dossierniveau: ['aanmeldingen', 'autorisaties', 'certificates', 'identificaties'],
+            bestand_toegangen: ['certificaten'],
+            locaties: ['botlek', 'bp_raffinaderij', 'rotterdam', 'schiphol'],
+            dagtijdschemas: ['24_7'],
+            zones: ['nibc_security', 'vip', 'zone_a', 'zone_noord', 'zone_oost', 'zone_west', 'zone_zuid'],
+            overzichten: ['aanwezigheid', 'bezoekers', 'contractors', 'verwachte_bezoekers'],
+            rapporten: ['aanwezigheid_rapport', 'calamiteiten'],
+            verouderde_rapporten: [],
+            beheerrechten: ['bezoek_locaties', 'bezoekredenen', 'toegangsregel_sets', 'toegangsregelautorisaties'],
+            delegatie: false, accrediteer_alle_bedrijven: false
+        });
+        const createMinimalRoleSettings = () => ({
+            processen: ['bezoeker'],
+            contractor_types: [],
+            taken: ['aanmelden'],
+            dossierniveau: ['aanmeldingen'],
+            bestand_toegangen: [],
+            locaties: ['dh_nibc'],
+            dagtijdschemas: ['kantooruren'],
+            zones: [],
+            overzichten: [],
+            rapporten: [],
+            verouderde_rapporten: [],
+            beheerrechten: [],
+            delegatie: false, accrediteer_alle_bedrijven: false
+        });
+
+        // Patch roleSettings onto Concept A roles (initialRolesA defined before factories)
+        initialRolesA.admin.roleSettings = createAdminRoleSettings();
+        initialRolesA.hr.roleSettings = createHRRoleSettings();
+        initialRolesA.security.roleSettings = createSecurityRoleSettings();
+        initialRolesA.contractor.roleSettings = createSecurityRoleSettings();
+        initialRolesA.guest.roleSettings = createMinimalRoleSettings();
 
         // Concept B roles (own categories, no profile link)
         const initialRolesB = {
-            admin: { name: "Administrator", description: "Volledige toegang", canReveal: true,
+            admin: { name: "Administrator", description: "Volledige toegang", canReveal: true, roleSettings: createAdminRoleSettings(),
               categories: { identity: true, contact_work: true, address: true, government_id: true, compliance: true, hours: true, employment: true, access: true },
               dossierCategories: { foto: true, identificatie_locatie: true, identificatie_bsn: true, posted_worker: true, sociale_lasten: true, gewerkte_uren: true, vca_certificaten: true },
               certCategories: { vca: true, vog: true, bhv: true, werkvergunning: true, rijbewijs: true },
               fileCategories: { arbeidsovereenkomst: true, loonstroken: true, id_kopie: true, a1_verklaring: true, verzekeringsbewijs: true },
               allowedScopes: { own_company: true, subcontractors: true } },
-            hr: { name: "HR Manager", description: "Persoons- en arbeidsgegevens", canReveal: true,
+            hr: { name: "HR Manager", description: "Persoons- en arbeidsgegevens", canReveal: true, roleSettings: createHRRoleSettings(),
               categories: { identity: true, contact_work: true, address: false, government_id: false, compliance: true, hours: true, employment: true, access: false },
               dossierCategories: { foto: true, identificatie_locatie: true, identificatie_bsn: false, posted_worker: true, sociale_lasten: false, gewerkte_uren: true, vca_certificaten: true },
               certCategories: { vca: true, vog: false, bhv: true, werkvergunning: true, rijbewijs: false },
               fileCategories: { arbeidsovereenkomst: false, loonstroken: false, id_kopie: false, a1_verklaring: true, verzekeringsbewijs: true },
               allowedScopes: { own_company: true, subcontractors: true } },
-            security: { name: "Security Manager", description: "Compliance en toegang", canReveal: false,
+            security: { name: "Security Manager", description: "Compliance en toegang", canReveal: false, roleSettings: createSecurityRoleSettings(),
               categories: { identity: true, contact_work: false, address: false, government_id: false, compliance: true, hours: true, employment: false, access: true },
               dossierCategories: { foto: true, identificatie_locatie: false, identificatie_bsn: false, posted_worker: false, sociale_lasten: false, gewerkte_uren: true, vca_certificaten: true },
               certCategories: { vca: true, vog: false, bhv: true, werkvergunning: false, rijbewijs: false },
               fileCategories: { arbeidsovereenkomst: false, loonstroken: false, id_kopie: false, a1_verklaring: false, verzekeringsbewijs: false },
               allowedScopes: { own_company: true, subcontractors: false } },
-            contractor: { name: "Contractor", description: "Beperkte toegang", canReveal: false,
+            contractor: { name: "Contractor", description: "Beperkte toegang", canReveal: false, roleSettings: createSecurityRoleSettings(),
               categories: { identity: true, contact_work: false, address: false, government_id: false, compliance: true, hours: true, employment: false, access: true },
               dossierCategories: { foto: true, identificatie_locatie: false, identificatie_bsn: false, posted_worker: false, sociale_lasten: false, gewerkte_uren: true, vca_certificaten: true },
               certCategories: { vca: true, vog: false, bhv: true, werkvergunning: false, rijbewijs: false },
               fileCategories: { arbeidsovereenkomst: false, loonstroken: false, id_kopie: false, a1_verklaring: false, verzekeringsbewijs: false },
               allowedScopes: { own_company: true, subcontractors: false } },
-            guest: { name: "Guest", description: "Basis verificatie", canReveal: false,
+            guest: { name: "Guest", description: "Basis verificatie", canReveal: false, roleSettings: createMinimalRoleSettings(),
               categories: { identity: true, contact_work: false, address: false, government_id: false, compliance: false, hours: false, employment: false, access: false },
               dossierCategories: { foto: false, identificatie_locatie: false, identificatie_bsn: false, posted_worker: false, sociale_lasten: false, gewerkte_uren: false, vca_certificaten: true },
               certCategories: { vca: true, vog: false, bhv: false, werkvergunning: false, rijbewijs: false },
@@ -883,68 +1113,120 @@
             };
         };
 
-        // ============ HELPER: Compute flat category maps from persona + deviations ============
-        const getCategoriesForPersona = (personaId, deviations = {}) => {
-            const persona = PERSONAS.find(p => p.id === personaId);
-            const preset = PRESETS.find(p => p.id === persona?.base);
-            if (!preset) return { categories: {}, dossierCategories: {}, certCategories: {}, fileCategories: {} };
-            const apply = (base, devKey) => {
-                const result = { ...base };
-                Object.entries(deviations[devKey] || {}).forEach(([k, v]) => result[k] = v);
-                return result;
-            };
-            return {
-                categories: apply(preset.categories, 'categories'),
-                dossierCategories: apply(preset.dossierCategories, 'dossierCategories'),
-                certCategories: apply(preset.certCategories, 'certCategories'),
-                fileCategories: apply(preset.fileCategories, 'fileCategories')
-            };
+        // ============ CONCEPT D: Derivation Engine (Task → Category Mapping) ============
+        const TASK_CATEGORY_MAP = {
+            aanmelden: { categories: ['identity', 'contact_work'] },
+            autorisaties_bewerken: { categories: ['identity', 'compliance', 'access'] },
+            deactivatie_beoordelen: { categories: ['identity', 'compliance'] },
+            dossier_bekijken: { categories: ['identity', 'compliance', 'hours', 'employment'] },
+            dossier_beoordelen: { categories: ['identity', 'compliance', 'hours', 'employment', 'government_id'] },
+            dossier_bewerken: { categories: ['identity', 'compliance', 'hours', 'employment', 'government_id', 'address'] },
+            dossier_registreren: { categories: ['identity', 'contact_work', 'employment'] },
+            foto_upload: { categories: ['identity'], dossier: ['foto'] },
+            examen_afronden: { categories: ['identity'], certs: ['vca'] },
+            heractivatie_beoordelen: { categories: ['identity', 'compliance'] },
+            identificatie_aanvragen: { categories: ['identity', 'government_id'], dossier: ['identificatie_locatie', 'identificatie_bsn'] },
+            identificatie_beoordelen: { categories: ['identity', 'government_id'], dossier: ['identificatie_locatie', 'identificatie_bsn'] },
+            identificatie_intrekken: { categories: ['identity'], dossier: ['identificatie_locatie'] },
+            contract_beeindigen: { categories: ['identity', 'employment'] },
+            elearning_uitnodiging: { categories: ['identity', 'contact_work'] },
+            uploaden: { categories: ['identity'] },
+            examenpoging_toevoegen: { categories: ['identity'], certs: ['vca'] },
+            autorisaties_beoordelen: { categories: ['identity', 'compliance', 'access'] }
+        };
+        const DOSSIERNIVEAU_MAP = {
+            aanmeldingen: { categories: ['identity', 'contact_work'] },
+            autorisaties: { categories: ['access', 'compliance'] },
+            certificates: { certs: ['vca', 'bhv', 'werkvergunning', 'rijbewijs'], dossier: ['vca_certificaten'] },
+            dossier_informatie: { categories: ['employment', 'address'] },
+            evenementen: { categories: ['hours'] },
+            gebruikers_bedrijf: { categories: ['employment'] },
+            geschiedenis: { categories: ['compliance'] },
+            identificaties: { categories: ['government_id'], dossier: ['identificatie_locatie', 'identificatie_bsn'] },
+            personen_bedrijf: { categories: ['identity', 'contact_work', 'employment'] }
+        };
+        const BESTAND_MAP = {
+            certificaten: { files: ['a1_verklaring', 'verzekeringsbewijs'], certs: ['vca', 'bhv', 'werkvergunning'] },
+            persoonlijk: { files: ['arbeidsovereenkomst', 'loonstroken', 'id_kopie'] }
         };
 
-        const countDeviations = (personaId, deviations = {}) => {
-            const persona = PERSONAS.find(p => p.id === personaId);
-            const preset = PRESETS.find(p => p.id === persona?.base);
-            if (!preset) return 0;
-            let count = 0;
-            const check = (baseMap, devKey) => {
-                Object.entries(deviations[devKey] || {}).forEach(([k, v]) => {
-                    if (!!baseMap[k] !== !!v) count++;
-                });
+        const deriveCategories = (roleSettings) => {
+            if (!roleSettings) return { categories: {}, dossierCategories: {}, certCategories: {}, fileCategories: {}, _justifications: {} };
+            const result = { categories: {}, dossierCategories: {}, certCategories: {}, fileCategories: {} };
+            const justifications = {};
+            const addJ = (group, catId, reason) => {
+                if (!justifications[group]) justifications[group] = {};
+                if (!justifications[group][catId]) justifications[group][catId] = [];
+                if (!justifications[group][catId].includes(reason)) justifications[group][catId].push(reason);
             };
-            check(preset.categories, 'categories');
-            check(preset.dossierCategories, 'dossierCategories');
-            check(preset.certCategories, 'certCategories');
-            check(preset.fileCategories, 'fileCategories');
-            return count;
+            // 1. Taken → categories
+            (roleSettings.taken || []).forEach(taskId => {
+                const map = TASK_CATEGORY_MAP[taskId];
+                if (!map) return;
+                const name = TAKEN.find(t => t.id === taskId)?.name || taskId;
+                (map.categories || []).forEach(c => { result.categories[c] = true; addJ('categories', c, name); });
+                (map.dossier || []).forEach(c => { result.dossierCategories[c] = true; addJ('dossierCategories', c, name); });
+                (map.certs || []).forEach(c => { result.certCategories[c] = true; addJ('certCategories', c, name); });
+                (map.files || []).forEach(c => { result.fileCategories[c] = true; addJ('fileCategories', c, name); });
+            });
+            // 2. Dossierniveau → categories
+            (roleSettings.dossierniveau || []).forEach(dnId => {
+                const map = DOSSIERNIVEAU_MAP[dnId];
+                if (!map) return;
+                const name = DOSSIERNIVEAU.find(d => d.id === dnId)?.name || dnId;
+                (map.categories || []).forEach(c => { result.categories[c] = true; addJ('categories', c, name); });
+                (map.dossier || []).forEach(c => { result.dossierCategories[c] = true; addJ('dossierCategories', c, name); });
+                (map.certs || []).forEach(c => { result.certCategories[c] = true; addJ('certCategories', c, name); });
+                (map.files || []).forEach(c => { result.fileCategories[c] = true; addJ('fileCategories', c, name); });
+            });
+            // 3. Bestand toegangen → categories
+            (roleSettings.bestand_toegangen || []).forEach(btId => {
+                const map = BESTAND_MAP[btId];
+                if (!map) return;
+                const name = BESTAND_TOEGANGEN.find(b => b.id === btId)?.name || btId;
+                (map.categories || []).forEach(c => { result.categories[c] = true; addJ('categories', c, name); });
+                (map.dossier || []).forEach(c => { result.dossierCategories[c] = true; addJ('dossierCategories', c, name); });
+                (map.certs || []).forEach(c => { result.certCategories[c] = true; addJ('certCategories', c, name); });
+                (map.files || []).forEach(c => { result.fileCategories[c] = true; addJ('fileCategories', c, name); });
+            });
+            // Always include identity if any tasks selected
+            if ((roleSettings.taken || []).length > 0) result.categories.identity = true;
+            return { ...result, _justifications: justifications };
         };
 
         // ============ Concept C roles (sensitivity level based) ============
         const initialRolesC = {
-            admin: { name: "Administrator", description: "Volledige toegang", sensitivityLevel: 4, exceptions: {}, canReveal: true,
+            admin: { name: "Administrator", description: "Volledige toegang", sensitivityLevel: 4, exceptions: {}, canReveal: true, roleSettings: createAdminRoleSettings(),
               ...getCategoriesForLevel(4), allowedScopes: { own_company: true, subcontractors: true } },
-            hr: { name: "HR Manager", description: "Persoons- en arbeidsgegevens", sensitivityLevel: 3, exceptions: {}, canReveal: true,
+            hr: { name: "HR Manager", description: "Persoons- en arbeidsgegevens", sensitivityLevel: 3, exceptions: {}, canReveal: true, roleSettings: createHRRoleSettings(),
               ...getCategoriesForLevel(3), allowedScopes: { own_company: true, subcontractors: true } },
-            security: { name: "Security Manager", description: "Compliance en toegang", sensitivityLevel: 2, exceptions: {}, canReveal: false,
+            security: { name: "Security Manager", description: "Compliance en toegang", sensitivityLevel: 2, exceptions: {}, canReveal: false, roleSettings: createSecurityRoleSettings(),
               ...getCategoriesForLevel(2), allowedScopes: { own_company: true, subcontractors: false } },
-            contractor: { name: "Contractor", description: "Beperkte toegang", sensitivityLevel: 2, exceptions: {}, canReveal: false,
+            contractor: { name: "Contractor", description: "Beperkte toegang", sensitivityLevel: 2, exceptions: {}, canReveal: false, roleSettings: createSecurityRoleSettings(),
               ...getCategoriesForLevel(2), allowedScopes: { own_company: true, subcontractors: false } },
-            guest: { name: "Guest", description: "Basis verificatie", sensitivityLevel: 1, exceptions: {}, canReveal: false,
+            guest: { name: "Guest", description: "Basis verificatie", sensitivityLevel: 1, exceptions: {}, canReveal: false, roleSettings: createMinimalRoleSettings(),
               ...getCategoriesForLevel(1), allowedScopes: { own_company: true, subcontractors: false } }
         };
 
-        // ============ Concept D roles (persona based) ============
-        const initialRolesD = {
-            admin: { name: "Administrator", description: "Volledige toegang", personaId: 'compliance_officer', deviations: {}, canReveal: true,
-              ...getCategoriesForPersona('compliance_officer'), allowedScopes: { own_company: true, subcontractors: true } },
-            hr: { name: "HR Manager", description: "Persoons- en arbeidsgegevens", personaId: 'hr_admin', deviations: {}, canReveal: true,
-              ...getCategoriesForPersona('hr_admin'), allowedScopes: { own_company: true, subcontractors: true } },
-            security: { name: "Security Manager", description: "Compliance en toegang", personaId: 'site_manager', deviations: {}, canReveal: false,
-              ...getCategoriesForPersona('site_manager'), allowedScopes: { own_company: true, subcontractors: false } },
-            contractor: { name: "Contractor", description: "Beperkte toegang", personaId: 'site_manager', deviations: {}, canReveal: false,
-              ...getCategoriesForPersona('site_manager'), allowedScopes: { own_company: true, subcontractors: false } },
-            guest: { name: "Guest", description: "Basis verificatie", personaId: 'external', deviations: {}, canReveal: false,
-              ...getCategoriesForPersona('external'), allowedScopes: { own_company: true, subcontractors: false } }
-        };
+        // ============ Concept D roles (derived from role settings) ============
+        const initialRolesD = (() => {
+            const makeRole = (name, desc, settingsFactory, canReveal, subcontractors) => {
+                const rs = settingsFactory();
+                const derived = deriveCategories(rs);
+                return { name, description: desc, canReveal, roleSettings: rs,
+                  categories: derived.categories, dossierCategories: derived.dossierCategories,
+                  certCategories: derived.certCategories, fileCategories: derived.fileCategories,
+                  _justifications: derived._justifications,
+                  allowedScopes: { own_company: true, subcontractors } };
+            };
+            return {
+                admin: makeRole("Administrator", "Volledige toegang", createAdminRoleSettings, true, true),
+                hr: makeRole("HR Manager", "Persoons- en arbeidsgegevens", createHRRoleSettings, true, true),
+                security: makeRole("Security Manager", "Compliance en toegang", createSecurityRoleSettings, false, false),
+                contractor: makeRole("Contractor", "Beperkte toegang", createSecurityRoleSettings, false, false),
+                guest: makeRole("Guest", "Basis verificatie", createMinimalRoleSettings, false, false)
+            };
+        })();
 
         // Component Icon helper - renders SVG icons for dossier components
         function ComponentIcon({ icon, className = "w-5 h-5" }) {
@@ -1039,6 +1321,125 @@
             );
         }
 
+        // ============ DualListSelector Component ============
+        function DualListSelector({ items, selected, onChange, maxHeight = 180 }) {
+            const [searchL, setSearchL] = useState('');
+            const [searchR, setSearchR] = useState('');
+            const available = items.filter(i => !selected.includes(i.id));
+            const selectedItems = items.filter(i => selected.includes(i.id));
+            const filteredAvail = searchL ? available.filter(i => i.name.toLowerCase().includes(searchL.toLowerCase())) : available;
+            const filteredSel = searchR ? selectedItems.filter(i => i.name.toLowerCase().includes(searchR.toLowerCase())) : selectedItems;
+
+            const addItem = (id) => onChange([...selected, id]);
+            const removeItem = (id) => onChange(selected.filter(x => x !== id));
+            const addAll = () => onChange([...selected, ...available.map(i => i.id)]);
+            const removeAll = () => onChange([]);
+
+            const ListCol = ({ title, count, total, items: listItems, onClickItem, icon, search, setSearch, actionLabel, onAction }) => (
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-yim-500 uppercase tracking-wide">{title}</span>
+                        <span className="text-xs text-yim-400">{count}/{total}</span>
+                    </div>
+                    {items.length > 8 && (
+                        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                            placeholder="Zoeken..." className="w-full px-2 py-1 text-xs border border-yim-200 rounded mb-1.5 focus:outline-none focus:border-yim-400" />
+                    )}
+                    <div className="border border-yim-200 rounded-lg bg-white" style={{ maxHeight, overflowY: 'auto' }}>
+                        {listItems.length === 0 ? (
+                            <div className="px-3 py-4 text-xs text-yim-400 text-center italic">Geen items</div>
+                        ) : listItems.map(item => (
+                            <div key={item.id} onClick={() => onClickItem(item.id)}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-yim-700 hover:bg-yim-50 cursor-pointer border-b border-yim-100 last:border-b-0 transition-colors">
+                                <span className="flex-1 truncate">{item.name}</span>
+                                <span className="text-yim-400 text-xs flex-shrink-0">{icon}</span>
+                            </div>
+                        ))}
+                    </div>
+                    {total > 0 && (
+                        <button onClick={onAction} className="mt-1.5 text-xs text-yim-500 hover:text-yim-700 font-medium transition-colors">
+                            {actionLabel}
+                        </button>
+                    )}
+                </div>
+            );
+
+            return (
+                <div className="flex gap-3">
+                    <ListCol title="Beschikbaar" count={available.length} total={items.length}
+                        items={filteredAvail} onClickItem={addItem} icon="→" search={searchL} setSearch={setSearchL}
+                        actionLabel={`Alles toevoegen (${available.length})`} onAction={addAll} />
+                    <ListCol title="Geselecteerd" count={selectedItems.length} total={items.length}
+                        items={filteredSel} onClickItem={removeItem} icon="←" search={searchR} setSearch={setSearchR}
+                        actionLabel="Alles verwijderen" onAction={removeAll} />
+                </div>
+            );
+        }
+
+        // ============ RoleSettingsPanel Component (flat form layout matching Figma) ============
+        function RoleSettingsPanel({ roleSettings, onChange, concept }) {
+            if (!roleSettings) return null;
+
+            const updateField = (field, value) => {
+                onChange({ ...roleSettings, [field]: value });
+            };
+
+            // Render a single row: label on left, dual-list on right
+            const renderRow = (row) => (
+                <div key={row.id} className="grid items-start border-b border-yim-100 pb-4" style={{ gridTemplateColumns: '150px 1fr' }}>
+                    <label className="text-sm text-yim-600 font-medium pt-1 pr-4">{row.name}</label>
+                    <DualListSelector items={row.items} selected={roleSettings[row.id] || []}
+                        onChange={(val) => updateField(row.id, val)} maxHeight={140} />
+                </div>
+            );
+
+            // Render a Ja/Nee toggle row
+            const renderToggleRow = (label, field) => (
+                <div className="flex items-center gap-4">
+                    <label className="text-sm text-yim-600 font-medium" style={{ minWidth: 200 }}>{label}</label>
+                    <div className="inline-flex rounded-lg border border-yim-200 overflow-hidden">
+                        <button onClick={() => updateField(field, true)}
+                            className={`px-5 py-1.5 text-sm font-medium transition-all ${roleSettings[field] ? 'bg-yim-green text-white' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>Ja</button>
+                        <button onClick={() => updateField(field, false)}
+                            className={`px-5 py-1.5 text-sm font-medium transition-all ${!roleSettings[field] ? 'bg-yim-500 text-white' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>Nee</button>
+                    </div>
+                </div>
+            );
+
+            // Section header
+            const renderSectionHeader = (name) => (
+                <div className="mt-2 mb-3">
+                    <h3 className="text-lg font-bold text-yim-700">{name}</h3>
+                    <div className="border-t border-yim-300 mt-1"></div>
+                </div>
+            );
+
+            return (
+                <div>
+                    {ROLE_SETTINGS_SECTIONS.map((section, idx) => (
+                        <div key={section.id} className={idx > 0 ? 'mt-5' : ''}>
+                            {section.header && renderSectionHeader(section.name)}
+                            <div className="space-y-4">
+                                {section.rows.map(renderRow)}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Delegatie */}
+                    <div className="mt-5">
+                        {renderSectionHeader('Delegatie')}
+                        {renderToggleRow('Rol kan worden gedelegeerd', 'delegatie')}
+                    </div>
+
+                    {/* Bedrijven */}
+                    <div className="mt-5">
+                        {renderSectionHeader('Bedrijven')}
+                        {renderToggleRow('Accrediteer alle bedrijven', 'accrediteer_alle_bedrijven')}
+                    </div>
+                </div>
+            );
+        }
+
         // Admin Panel Component - with profiles management and role editor
         function AdminPanel({ roles, setRoles, visibilityProfiles, setVisibilityProfiles, concept }) {
             const [selectedRole, setSelectedRole] = useState(null);
@@ -1077,14 +1478,13 @@
 
             const openNewRoleEditor = () => {
                 const newRole = concept === 'A'
-                    ? { name: '', description: '', visibilityProfileId: visibilityProfiles[0]?.id || 'minimal' }
+                    ? { name: '', description: '', visibilityProfileId: visibilityProfiles[0]?.id || 'minimal', roleSettings: createDefaultRoleSettings() }
                     : concept === 'C'
-                    ? { name: '', description: '', sensitivityLevel: 2, exceptions: {}, canReveal: false,
+                    ? { name: '', description: '', sensitivityLevel: 2, exceptions: {}, canReveal: false, roleSettings: createDefaultRoleSettings(),
                         ...getCategoriesForLevel(2), allowedScopes: { own_company: true, subcontractors: false } }
                     : concept === 'D'
-                    ? { name: '', description: '', personaId: 'site_manager', deviations: {}, canReveal: false,
-                        ...getCategoriesForPersona('site_manager'), allowedScopes: { own_company: true, subcontractors: false } }
-                    : { name: '', description: '', canReveal: false,
+                    ? (() => { const rs = createDefaultRoleSettings(); const derived = deriveCategories(rs); return { name: '', description: '', canReveal: false, roleSettings: rs, categories: derived.categories, dossierCategories: derived.dossierCategories, certCategories: derived.certCategories, fileCategories: derived.fileCategories, _justifications: derived._justifications, allowedScopes: { own_company: true, subcontractors: false } }; })()
+                    : { name: '', description: '', canReveal: false, roleSettings: createDefaultRoleSettings(),
                         categories: Object.fromEntries(dataGroups.map(g => [g.id, false])),
                         dossierCategories: Object.fromEntries(dossierComponents.map(c => [c.id, false])),
                         certCategories: Object.fromEntries(certificateCategories.map(c => [c.id, false])),
@@ -1598,7 +1998,7 @@
                                             : concept === 'C'
                                             ? `Niveau: ${SENSITIVITY_LEVELS.find(l => l.level === editForm.sensitivityLevel)?.name || '?'} · ${totalCatCount}/${totalCatMax} categorieën`
                                             : concept === 'D'
-                                            ? `Persona: ${PERSONAS.find(p => p.id === editForm.personaId)?.name || '?'} · ${countDeviations(editForm.personaId, editForm.deviations)} afwijkingen`
+                                            ? `Afgeleid · ${totalCatCount}/${totalCatMax} categorieën · ${(editForm.roleSettings?.taken || []).length} taken`
                                             : `${totalCatCount}/${totalCatMax} categorieën · ${Object.values(editForm.allowedScopes || {}).filter(Boolean).length}/2 scopes`
                                         }
                                     </p>
@@ -1634,6 +2034,34 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* ===== SHARED: Role Settings Panel ===== */}
+                                <div className="bg-white rounded-xl border border-yim-200 overflow-hidden">
+                                    <div className="p-5">
+                                        <RoleSettingsPanel
+                                            roleSettings={editForm.roleSettings || createDefaultRoleSettings()}
+                                            onChange={(newSettings) => {
+                                                if (concept === 'D') {
+                                                    const derived = deriveCategories(newSettings);
+                                                    setEditForm(prev => ({ ...prev, roleSettings: newSettings,
+                                                        categories: derived.categories, dossierCategories: derived.dossierCategories,
+                                                        certCategories: derived.certCategories, fileCategories: derived.fileCategories,
+                                                        _justifications: derived._justifications }));
+                                                } else {
+                                                    setEditForm(prev => ({ ...prev, roleSettings: newSettings }));
+                                                }
+                                            }}
+                                            concept={concept}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* ===== Data-inzage scheidingslijn ===== */}
+                                <div className="flex items-center gap-3 mt-2">
+                                    <div className="flex-1 border-t border-yim-300"></div>
+                                    <span className="text-xs font-bold text-yim-500 uppercase tracking-wider">Data-inzage</span>
+                                    <div className="flex-1 border-t border-yim-300"></div>
                                 </div>
 
                                 {/* ===== CONCEPT B: Preset-First + Collapsible Groups ===== */}
@@ -1895,55 +2323,88 @@
                                 </>
                                 )}
 
-                                {/* ===== CONCEPT D: Role Personas ===== */}
+                                {/* ===== CONCEPT D: Derived Data Visibility (Read-only) ===== */}
                                 {concept === 'D' && (
                                 <>
                                 <div className="bg-white rounded-xl border border-yim-200 overflow-hidden">
                                     <div className="px-5 py-4 border-b border-yim-200">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h3 className="text-sm font-semibold text-yim-600">Rolpersona</h3>
-                                            {(() => {
-                                                const persona = PERSONAS.find(p => p.id === editForm.personaId);
-                                                const devCount = countDeviations(editForm.personaId, editForm.deviations);
-                                                return (
-                                                    <div className="flex items-center gap-2">
-                                                        {devCount > 0 && <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">{devCount} afwijking{devCount !== 1 ? 'en' : ''}</span>}
-                                                        <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">{persona?.name}</span>
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-sm font-semibold text-yim-600">Afgeleide data-inzage</h3>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                                    Afgeleid · {totalCatCount}/{totalCatMax} categorieën
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-yim-600 opacity-50 mt-1.5">Categorieën worden automatisch bepaald op basis van de geselecteerde taken, dossierniveaus en bestandtoegang hierboven.</p>
+                                    </div>
+
+                                    {/* Derived category groups - read-only */}
+                                    <div className="divide-y divide-yim-100">
+                                        {categoryGroups.map(group => {
+                                            const activeCount = group.items.filter(item => !!editForm[group.formKey]?.[item.id]).length;
+                                            const totalCount = group.items.length;
+                                            const isExpanded = expandedGroups[group.key];
+                                            const justKey = group.formKey === 'categories' ? 'categories' : group.formKey === 'dossierCategories' ? 'dossier' : group.formKey === 'certCategories' ? 'certs' : 'files';
+                                            const justifications = editForm._justifications?.[justKey] || {};
+                                            return (
+                                                <div key={group.key}>
+                                                    <div className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-colors ${isExpanded ? 'bg-yim-50' : 'hover:bg-yim-50'}`} onClick={() => toggleGroupExpand(group.key)}>
+                                                        <svg className={`w-4 h-4 text-yim-300 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                                        <span className="text-sm font-medium text-yim-600 flex-1">{group.label}</span>
+                                                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${activeCount === 0 ? 'text-yim-600 opacity-40 bg-yim-100' : activeCount === totalCount ? 'text-yim-green bg-yim-green/10' : 'text-purple-600 bg-purple-50'}`}>{activeCount}/{totalCount}</span>
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
-                                        {/* Persona selector grid */}
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {PERSONAS.map(persona => {
-                                                const isMatch = editForm.personaId === persona.id;
-                                                const preset = PRESETS.find(p => p.id === persona.base);
-                                                const total = preset ? Object.values(preset.categories).filter(Boolean).length + Object.values(preset.dossierCategories).filter(Boolean).length + Object.values(preset.certCategories).filter(Boolean).length + Object.values(preset.fileCategories).filter(Boolean).length : 0;
-                                                return (
-                                                    <button key={persona.id} onClick={() => {
-                                                        const newCats = getCategoriesForPersona(persona.id);
-                                                        setEditForm(prev => ({
-                                                            ...prev,
-                                                            personaId: persona.id,
-                                                            deviations: {},
-                                                            canReveal: preset?.canReveal ?? false,
-                                                            ...newCats,
-                                                            allowedScopes: { ...preset?.allowedScopes }
-                                                        }));
-                                                    }} className={`text-left px-3.5 py-2.5 rounded-lg border-2 transition-all ${isMatch ? 'border-purple-400 bg-purple-50' : 'border-yim-200 bg-white hover:border-purple-200'}`}>
-                                                        <div className="flex items-center justify-between">
-                                                            <span className={`text-sm font-medium ${isMatch ? 'text-purple-700' : 'text-yim-600'}`}>{persona.name}</span>
-                                                            {isMatch && <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
+                                                    {isExpanded && (
+                                                        <div className="px-5 pb-4 pt-2 bg-yim-50/50">
+                                                            <div className="flex flex-wrap gap-2 ml-7">
+                                                                {group.items.map(item => {
+                                                                    const isActive = !!editForm[group.formKey]?.[item.id];
+                                                                    const sens = group.getSensitivity(item);
+                                                                    const reasons = justifications[item.id] || [];
+                                                                    return (
+                                                                        <div key={item.id} className="relative group">
+                                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border ${isActive
+                                                                                ? 'bg-purple-500 text-white border-purple-500 shadow-sm'
+                                                                                : 'bg-yim-100 text-yim-600 opacity-40 border-yim-200'}`}>
+                                                                                {isActive && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
+                                                                                {!isActive && <span className="text-xs">—</span>}
+                                                                                {sens && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sens === 'red' ? (isActive ? 'bg-red-300' : 'bg-yim-red') : (isActive ? 'bg-orange-300' : 'bg-yim-orange')}`}></span>}
+                                                                                {item.name}
+                                                                            </span>
+                                                                            {/* Justification tooltip */}
+                                                                            {isActive && reasons.length > 0 && (
+                                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-10">
+                                                                                    <div className="bg-yim-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                                                                                        <p className="font-medium mb-1 text-white/70">Actief door:</p>
+                                                                                        {reasons.slice(0, 5).map((r, i) => (
+                                                                                            <p key={i} className="text-white/90">• {r}</p>
+                                                                                        ))}
+                                                                                        {reasons.length > 5 && <p className="text-white/50 mt-0.5">+ {reasons.length - 5} meer...</p>}
+                                                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px"><div className="border-4 border-transparent border-t-yim-700"></div></div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                            {/* Small justification badges below active chips */}
+                                                                            {isActive && reasons.length > 0 && (
+                                                                                <div className="flex flex-wrap gap-0.5 mt-0.5 ml-0.5">
+                                                                                    {reasons.slice(0, 2).map((r, i) => (
+                                                                                        <span key={i} className="text-[9px] text-purple-400 bg-purple-50 px-1 py-0 rounded">{r.length > 18 ? r.slice(0, 16) + '…' : r}</span>
+                                                                                    ))}
+                                                                                    {reasons.length > 2 && <span className="text-[9px] text-purple-300">+{reasons.length - 2}</span>}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            {activeCount === 0 && (
+                                                                <p className="text-xs text-yim-600 opacity-40 ml-7 mt-2 italic">Geen categorieën afgeleid — selecteer taken of dossierniveaus hierboven</p>
+                                                            )}
                                                         </div>
-                                                        <p className="text-[10px] text-yim-600 opacity-60 mt-1 italic leading-tight">{persona.purpose}</p>
-                                                        <div className="flex items-center gap-2 mt-1.5">
-                                                            <span className="text-xs text-yim-600 opacity-50">{total}/{totalCatMax} cat.</span>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <p className="text-xs text-yim-600 opacity-40 mt-3">{totalCatCount}/{totalCatMax} categorieën actief · {editForm.allowedScopes?.subcontractors ? 'Incl. onderaannemers' : 'Eigen organisatie'}</p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
 
                                     {/* Data scope */}
@@ -1964,68 +2425,6 @@
                                                 })}
                                             </div>
                                         </div>
-                                    </div>
-
-                                    {/* Composition with deviation indicators */}
-                                    <div className="divide-y divide-yim-100">
-                                        {categoryGroups.map(group => {
-                                            const activeCount = group.items.filter(item => !!editForm[group.formKey]?.[item.id]).length;
-                                            const totalCount = group.items.length;
-                                            const isExpanded = expandedGroups[group.key];
-                                            const persona = PERSONAS.find(p => p.id === editForm.personaId);
-                                            const preset = PRESETS.find(p => p.id === persona?.base);
-                                            const deviationCount = group.items.filter(item => {
-                                                const personaDefault = !!preset?.[group.key === 'categories' ? 'categories' : group.key]?.[item.id];
-                                                const actual = !!editForm[group.formKey]?.[item.id];
-                                                return personaDefault !== actual;
-                                            }).length;
-                                            return (
-                                                <div key={group.key}>
-                                                    <div className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-colors ${isExpanded ? 'bg-yim-50' : 'hover:bg-yim-50'}`} onClick={() => toggleGroupExpand(group.key)}>
-                                                        <svg className={`w-4 h-4 text-yim-300 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                                        <span className="text-sm font-medium text-yim-600 flex-1">{group.label}</span>
-                                                        {deviationCount > 0 && <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{deviationCount}x</span>}
-                                                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${activeCount === 0 ? 'text-yim-600 opacity-40 bg-yim-100' : activeCount === totalCount ? 'text-yim-green bg-yim-green/10' : 'text-yim-500 bg-yim-50'}`}>{activeCount}/{totalCount}</span>
-                                                    </div>
-                                                    {isExpanded && (
-                                                        <div className="px-5 pb-4 pt-1 bg-yim-50/50">
-                                                            <div className="flex flex-wrap gap-2 ml-7">
-                                                                {group.items.map(item => {
-                                                                    const isActive = !!editForm[group.formKey]?.[item.id];
-                                                                    const personaDefault = !!preset?.[group.key === 'categories' ? 'categories' : group.key]?.[item.id];
-                                                                    const isDeviation = personaDefault !== isActive;
-                                                                    const sens = group.getSensitivity(item);
-                                                                    return (
-                                                                        <button key={item.id} onClick={() => {
-                                                                            const newVal = !isActive;
-                                                                            setEditForm(prev => {
-                                                                                const newDeviations = { ...prev.deviations };
-                                                                                if (!newDeviations[group.formKey]) newDeviations[group.formKey] = {};
-                                                                                if (newVal === personaDefault) {
-                                                                                    delete newDeviations[group.formKey][item.id];
-                                                                                    if (Object.keys(newDeviations[group.formKey]).length === 0) delete newDeviations[group.formKey];
-                                                                                } else {
-                                                                                    newDeviations[group.formKey][item.id] = newVal;
-                                                                                }
-                                                                                return { ...prev, deviations: newDeviations, [group.formKey]: { ...prev[group.formKey], [item.id]: newVal } };
-                                                                            });
-                                                                        }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive
-                                                                            ? isDeviation ? 'bg-green-500 text-white border-green-500 shadow-sm' : 'bg-yim-500 text-white border-yim-500 shadow-sm'
-                                                                            : isDeviation ? 'bg-red-50 text-red-400 border-red-200 line-through' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                                            {isActive && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
-                                                                            {isDeviation && !isActive && <span className="text-xs">−</span>}
-                                                                            {isDeviation && isActive && <span className="text-xs">+</span>}
-                                                                            {sens && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sens === 'red' ? (isActive ? 'bg-red-300' : 'bg-yim-red') : (isActive ? 'bg-orange-300' : 'bg-yim-orange')}`}></span>}
-                                                                            {item.name}
-                                                                        </button>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
                                     </div>
 
                                     {/* canReveal toggle */}
@@ -2175,7 +2574,7 @@
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">Naam</th>
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">Beschrijving</th>
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">
-                                                            {concept === 'A' ? 'Profiel' : concept === 'B' ? 'Data zichtbaarheid' : concept === 'C' ? 'Inzageniveau' : 'Persona'}
+                                                            {concept === 'A' ? 'Profiel' : concept === 'B' ? 'Data zichtbaarheid' : concept === 'C' ? 'Inzageniveau' : 'Afleiding'}
                                                         </th>
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">Onthullen</th>
                                                         <th className="px-6 py-3 text-right text-sm font-normal text-white"></th>
@@ -2215,15 +2614,15 @@
                                                                             </div>
                                                                         );
                                                                     })() : concept === 'D' ? (() => {
-                                                                        const persona = PERSONAS.find(p => p.id === roleData.personaId);
-                                                                        const devCount = countDeviations(roleData.personaId, roleData.deviations);
+                                                                        const takenCount = (roleData.roleSettings?.taken || []).length;
                                                                         const scopeLabel = roleData.allowedScopes?.subcontractors ? 'Incl. onderaannemers' : 'Eigen organisatie';
                                                                         return (
                                                                             <div className="flex flex-wrap items-center gap-1.5">
-                                                                                <span className="inline-flex items-center text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-200">{persona?.name || 'Geen'}</span>
-                                                                                {devCount > 0 && <><span className="text-xs text-yim-400">·</span><span className="text-xs text-purple-500">{devCount} afwijking{devCount !== 1 ? 'en' : ''}</span></>}
+                                                                                <span className="inline-flex items-center text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-200">Afgeleid</span>
                                                                                 <span className="text-xs text-yim-400">·</span>
-                                                                                <span className="text-xs text-yim-500">{roleTotalCat}/{roleTotalMax}</span>
+                                                                                <span className="text-xs text-yim-500">{takenCount} taken</span>
+                                                                                <span className="text-xs text-yim-400">·</span>
+                                                                                <span className="text-xs text-yim-500">{roleTotalCat}/{roleTotalMax} cat.</span>
                                                                                 <span className="text-xs text-yim-400">·</span>
                                                                                 <span className="text-xs text-yim-500">{scopeLabel}</span>
                                                                             </div>
@@ -2419,7 +2818,7 @@
                                         C: Inzageniveau
                                     </button>
                                     <button onClick={() => setConcept('D')} className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-all ${concept === 'D' ? 'bg-purple-500 text-white shadow-sm' : 'text-white/60 hover:text-white'}`}>
-                                        D: Rolpersona's
+                                        D: Afleiding
                                     </button>
                                 </div>
                             </div>
@@ -2427,7 +2826,7 @@
                                 {concept === 'A' ? 'Profiel = bron van waarheid · Profielwijziging raakt alle gekoppelde rollen'
                                  : concept === 'B' ? 'Rol = bron van waarheid · Presets vullen categorieën in, geen link bewaard'
                                  : concept === 'C' ? 'Eén gevoeligheidsniveau per rol · Uitzonderingen optioneel'
-                                 : 'Functiegebonden persona\'s · AVG-doelbinding · Afwijkingen expliciet'}
+                                 : 'Automatische afleiding · Categorieën volgen uit rolinstellingen'}
                             </p>
                         </div>
                     </div>
