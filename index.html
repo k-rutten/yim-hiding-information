@@ -468,12 +468,12 @@
                                         <div className="text-xs text-yim-600 opacity-60 leading-relaxed mb-2">
                                             {roleData.description}
                                         </div>
-                                        {(() => { const p = visibilityProfiles.find(p => p.id === roleData.visibilityProfileId); return p; })() && (
+                                        {concept === 'A' && (() => { const p = visibilityProfiles.find(p => p.id === roleData.visibilityProfileId); return p; })() && (
                                             <div className="text-xs text-yim-500 bg-yim-50 px-2 py-0.5 rounded mt-1">
                                                 {visibilityProfiles.find(p => p.id === roleData.visibilityProfileId)?.name}
                                             </div>
                                         )}
-                                        {(() => { const p = visibilityProfiles.find(p => p.id === roleData.visibilityProfileId); return p?.canReveal; })() && (
+                                        {concept === 'A' && (() => { const p = visibilityProfiles.find(p => p.id === roleData.visibilityProfileId); return p?.canReveal; })() && (
                                             <div className="flex items-center gap-1 text-xs text-yim-green mt-1">
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1436,6 +1436,27 @@
                 }));
             };
 
+            // Concept B: match current editForm against presets
+            const matchPreset = (form) => {
+                return PRESETS.find(preset => {
+                    const catsMatch = Object.keys(preset.categories).every(k => !!preset.categories[k] === !!form.categories?.[k]);
+                    const dossMatch = Object.keys(preset.dossierCategories).every(k => !!preset.dossierCategories[k] === !!form.dossierCategories?.[k]);
+                    const certMatch = Object.keys(preset.certCategories).every(k => !!preset.certCategories[k] === !!form.certCategories?.[k]);
+                    const fileMatch = Object.keys(preset.fileCategories).every(k => !!preset.fileCategories[k] === !!form.fileCategories?.[k]);
+                    const scopeMatch = !!preset.allowedScopes.subcontractors === !!form.allowedScopes?.subcontractors;
+                    const revealMatch = !!preset.canReveal === !!form.canReveal;
+                    return catsMatch && dossMatch && certMatch && fileMatch && scopeMatch && revealMatch;
+                }) || null;
+            };
+
+            // Concept B: category group definitions for collapsible UI
+            const categoryGroups = [
+                { key: 'categories', label: 'Persoonsgegevens', items: dataGroups, formKey: 'categories', getSensitivity: (item) => item.sensitivity === 'gevoelig' ? 'orange' : item.sensitivity === 'zeer_gevoelig' ? 'red' : null },
+                { key: 'dossierCategories', label: 'Dossier', items: dossierComponents, formKey: 'dossierCategories', getSensitivity: (item) => item.sensitive ? 'red' : null },
+                { key: 'certCategories', label: 'Certificaten', items: certificateCategories, formKey: 'certCategories', getSensitivity: (item) => item.sensitive ? 'red' : null },
+                { key: 'fileCategories', label: 'Bestanden', items: fileCategories, formKey: 'fileCategories', getSensitivity: (item) => item.sensitive ? 'red' : null }
+            ];
+
             if (selectedRole) {
                 const linkedProfile = concept === 'A' ? getProfileForRole(editForm) : null;
                 const catCount = concept === 'B' ? Object.values(editForm.categories || {}).filter(Boolean).length : 0;
@@ -1444,6 +1465,7 @@
                 const fileCount = concept === 'B' ? Object.values(editForm.fileCategories || {}).filter(Boolean).length : 0;
                 const totalCatCount = catCount + dossierCount + certCount + fileCount;
                 const totalCatMax = dataGroups.length + dossierComponents.length + certificateCategories.length + fileCategories.length;
+                const matchedPreset = concept === 'B' ? matchPreset(editForm) : null;
                 return (
                     <div className="fixed inset-0 bg-yim-100 z-50 overflow-hidden flex flex-col">
                         <div className="bg-white border-b border-yim-200 px-6 py-4 flex items-center justify-between shrink-0">
@@ -1497,33 +1519,123 @@
                                     </div>
                                 </div>
 
-                                {/* ===== CONCEPT B: Data Scope ===== */}
+                                {/* ===== CONCEPT B: Preset-First + Collapsible Groups ===== */}
                                 {concept === 'B' && (
+                                <>
                                 <div className="bg-white rounded-xl border border-yim-200 overflow-hidden">
-                                    <div className="px-5 py-4">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs font-medium text-yim-600 opacity-50 uppercase tracking-wide">Data scope</p>
+                                    {/* Preset selector - radio style */}
+                                    <div className="px-5 py-4 border-b border-yim-200">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-sm font-semibold text-yim-600">Data zichtbaarheid</h3>
+                                            {matchedPreset ? (
+                                                <span className="text-xs text-yim-500 bg-yim-50 px-2 py-0.5 rounded border border-yim-200">{matchedPreset.name}</span>
+                                            ) : (
+                                                <span className="text-xs text-yim-orange bg-yim-orange/10 px-2 py-0.5 rounded border border-yim-orange/20">Aangepast</span>
+                                            )}
                                         </div>
-                                        <div className="mt-2.5 inline-flex rounded-lg border border-yim-200 overflow-hidden">
-                                            {[
-                                                { id: 'own_company', label: 'Eigen organisatie' },
-                                                { id: 'subcontractors', label: 'Incl. onderaannemers' }
-                                            ].map(option => {
-                                                const isSelected = option.id === 'own_company'
-                                                    ? !editForm.allowedScopes?.subcontractors
-                                                    : !!editForm.allowedScopes?.subcontractors;
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {PRESETS.map(preset => {
+                                                const isMatch = matchedPreset?.id === preset.id;
+                                                const total = Object.values(preset.categories).filter(Boolean).length + Object.values(preset.dossierCategories).filter(Boolean).length + Object.values(preset.certCategories).filter(Boolean).length + Object.values(preset.fileCategories).filter(Boolean).length;
                                                 return (
-                                                    <button key={option.id} onClick={() => setEditForm(prev => ({
-                                                        ...prev,
-                                                        allowedScopes: { own_company: true, subcontractors: option.id === 'subcontractors' }
-                                                    }))} className={`px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-yim-500 text-white shadow-sm' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>
-                                                        {option.label}
+                                                    <button key={preset.id} onClick={() => applyPreset(preset.id)} className={`text-left px-3.5 py-2.5 rounded-lg border-2 transition-all ${isMatch ? 'border-yim-500 bg-yim-50' : 'border-yim-200 bg-white hover:border-yim-300'}`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className={`text-sm font-medium ${isMatch ? 'text-yim-500' : 'text-yim-600'}`}>{preset.name}</span>
+                                                            {isMatch && <svg className="w-4 h-4 text-yim-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-xs text-yim-600 opacity-50">{total}/{totalCatMax} cat.</span>
+                                                            {preset.allowedScopes.subcontractors && <span className="text-xs text-yim-500 opacity-70">+ sub</span>}
+                                                            {preset.canReveal && <span className="text-xs text-yim-green">onthullen</span>}
+                                                        </div>
                                                     </button>
                                                 );
                                             })}
                                         </div>
+                                        <p className="text-xs text-yim-600 opacity-40 mt-3">{totalCatCount}/{totalCatMax} categorieën actief · {editForm.allowedScopes?.subcontractors ? 'Incl. onderaannemers' : 'Eigen organisatie'}</p>
+                                    </div>
+
+                                    {/* Collapsible category groups */}
+                                    <div className="divide-y divide-yim-100">
+                                        {categoryGroups.map(group => {
+                                            const activeCount = group.items.filter(item => !!editForm[group.formKey]?.[item.id]).length;
+                                            const totalCount = group.items.length;
+                                            const allOn = activeCount === totalCount;
+                                            const isExpanded = expandedGroups[group.key];
+                                            return (
+                                                <div key={group.key}>
+                                                    <div className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-colors ${isExpanded ? 'bg-yim-50' : 'hover:bg-yim-50'}`} onClick={() => toggleGroupExpand(group.key)}>
+                                                        <svg className={`w-4 h-4 text-yim-300 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                                        <span className="text-sm font-medium text-yim-600 flex-1">{group.label}</span>
+                                                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${activeCount === 0 ? 'text-yim-600 opacity-40 bg-yim-100' : activeCount === totalCount ? 'text-yim-green bg-yim-green/10' : 'text-yim-500 bg-yim-50'}`}>{activeCount}/{totalCount}</span>
+                                                        <button onClick={(e) => { e.stopPropagation(); const val = !allOn; const updated = {}; group.items.forEach(item => updated[item.id] = val); setEditForm(prev => ({ ...prev, [group.formKey]: updated })); }} className={`px-2 py-1 text-xs font-medium rounded transition-colors ${allOn ? 'text-yim-600 opacity-50 hover:bg-yim-200 bg-yim-100' : 'text-yim-500 hover:bg-yim-100 bg-yim-50'}`}>
+                                                            {allOn ? 'Alles uit' : 'Alles aan'}
+                                                        </button>
+                                                    </div>
+                                                    {isExpanded && (
+                                                        <div className="px-5 pb-4 pt-1 bg-yim-50/50">
+                                                            <div className="flex flex-wrap gap-2 ml-7">
+                                                                {group.items.map(item => {
+                                                                    const isActive = !!editForm[group.formKey]?.[item.id];
+                                                                    const sens = group.getSensitivity(item);
+                                                                    return (
+                                                                        <button key={item.id} onClick={() => setEditForm(prev => ({ ...prev, [group.formKey]: { ...prev[group.formKey], [item.id]: !prev[group.formKey]?.[item.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
+                                                                            {isActive && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
+                                                                            {sens && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sens === 'red' ? (isActive ? 'bg-red-300' : 'bg-yim-red') : (isActive ? 'bg-orange-300' : 'bg-yim-orange')}`}></span>}
+                                                                            {item.name}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Data scope - integrated */}
+                                    <div className="border-t border-yim-200 px-5 py-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-yim-600">Data scope</p>
+                                                <p className="text-xs text-yim-600 opacity-50 mt-0.5">Wiens data mag deze rol bekijken?</p>
+                                            </div>
+                                            <div className="inline-flex rounded-lg border border-yim-200 overflow-hidden">
+                                                {[
+                                                    { id: 'own_company', label: 'Eigen organisatie' },
+                                                    { id: 'subcontractors', label: 'Incl. onderaannemers' }
+                                                ].map(option => {
+                                                    const isSelected = option.id === 'own_company'
+                                                        ? !editForm.allowedScopes?.subcontractors
+                                                        : !!editForm.allowedScopes?.subcontractors;
+                                                    return (
+                                                        <button key={option.id} onClick={() => setEditForm(prev => ({
+                                                            ...prev,
+                                                            allowedScopes: { own_company: true, subcontractors: option.id === 'subcontractors' }
+                                                        }))} className={`px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-yim-500 text-white shadow-sm' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>
+                                                            {option.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* canReveal toggle */}
+                                    <div className="border-t border-yim-200 px-5 py-4 bg-yim-50">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-yim-600">Tijdelijk onthullen</p>
+                                                <p className="text-xs text-yim-600 opacity-50 mt-0.5">Mag gemaskeerde velden tijdelijk (5 sec) bekijken</p>
+                                            </div>
+                                            <button onClick={() => setEditForm(prev => ({ ...prev, canReveal: !prev.canReveal }))} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.canReveal ? 'bg-yim-500' : 'bg-yim-300'}`}>
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editForm.canReveal ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                                </>
                                 )}
 
                                 {/* ===== CONCEPT A: Visibility Profile Selection ===== */}
@@ -1586,175 +1698,7 @@
                                 </div>
                                 )}
 
-                                {/* ===== CONCEPT B: Preset selector + Category toggles ===== */}
-                                {concept === 'B' && (
-                                <>
-                                {/* Categories - Multi-select chips with preset dropdown */}
-                                <div className="bg-white rounded-xl border border-yim-200 overflow-hidden">
-                                    <div className="px-5 py-4 border-b border-yim-200">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="text-sm font-semibold text-yim-600">Categorieën</h3>
-                                                <p className="text-xs text-yim-600 opacity-60 mt-0.5">{totalCatCount}/{totalCatMax} categorieën actief</p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="relative">
-                                                    <button onClick={() => setPresetOpen(!presetOpen)} className="inline-flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-xs font-medium text-yim-500 bg-yim-50 border border-yim-200 hover:border-yim-500 hover:bg-yim-100 rounded-lg cursor-pointer transition-colors">
-                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" /></svg>
-                                                        Preset
-                                                        <svg className={`w-3 h-3 transition-transform ${presetOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                                    </button>
-                                                    {presetOpen && (
-                                                        <>
-                                                            <div className="fixed inset-0 z-30" onClick={() => setPresetOpen(false)}></div>
-                                                            <div className="absolute right-0 top-full mt-1.5 z-40 bg-white rounded-xl border border-yim-200 shadow-lg w-64 overflow-hidden">
-                                                                <div className="px-3 py-2 border-b border-yim-100">
-                                                                    <p className="text-xs text-yim-600 opacity-50">Snel invullen op basis van een preset</p>
-                                                                </div>
-                                                                {PRESETS.map(preset => {
-                                                                    const total = Object.values(preset.categories).filter(Boolean).length + Object.values(preset.dossierCategories).filter(Boolean).length + Object.values(preset.certCategories).filter(Boolean).length + Object.values(preset.fileCategories).filter(Boolean).length;
-                                                                    const max = dataGroups.length + dossierComponents.length + certificateCategories.length + fileCategories.length;
-                                                                    const scopeCount = Object.values(preset.allowedScopes || {}).filter(Boolean).length;
-                                                                    return (
-                                                                        <button key={preset.id} onClick={() => { applyPreset(preset.id); setPresetOpen(false); }} className="w-full text-left px-3 py-2.5 hover:bg-yim-50 transition-colors flex items-center justify-between group border-b border-yim-100 last:border-0">
-                                                                            <div>
-                                                                                <p className="text-sm font-medium text-yim-600 group-hover:text-yim-500">{preset.name}</p>
-                                                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                                                    <span className="text-xs font-semibold text-yim-green">{total}/{max}</span>
-                                                                                    <span className="text-xs text-yim-600 opacity-50">cat.</span>
-                                                                                    <span className="text-xs text-yim-500">{scopeCount}/2 scopes</span>
-                                                                                    {preset.canReveal && <span className="text-xs text-yim-green bg-yim-green/10 px-1.5 py-0.5 rounded">Onthullen</span>}
-                                                                                </div>
-                                                                            </div>
-                                                                            <svg className="w-4 h-4 text-yim-300 group-hover:text-yim-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                                                        </button>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div className="w-px h-5 bg-yim-200"></div>
-                                                <div className="flex gap-1">
-                                                    <button onClick={() => {
-                                                        const cats = {}; dataGroups.forEach(g => cats[g.id] = false);
-                                                        const doss = {}; dossierComponents.forEach(c => doss[c.id] = false);
-                                                        const certs = {}; certificateCategories.forEach(c => certs[c.id] = false);
-                                                        const files = {}; fileCategories.forEach(c => files[c.id] = false);
-                                                        setEditForm(prev => ({ ...prev, categories: cats, dossierCategories: doss, certCategories: certs, fileCategories: files }));
-                                                    }} className="px-2.5 py-1.5 text-xs font-medium text-yim-600 opacity-70 bg-white border border-yim-200 hover:bg-yim-100 rounded-md transition-colors">Alles uit</button>
-                                                    <button onClick={() => {
-                                                        const cats = {}; dataGroups.forEach(g => cats[g.id] = true);
-                                                        const doss = {}; dossierComponents.forEach(c => doss[c.id] = true);
-                                                        const certs = {}; certificateCategories.forEach(c => certs[c.id] = true);
-                                                        const files = {}; fileCategories.forEach(c => files[c.id] = true);
-                                                        setEditForm(prev => ({ ...prev, categories: cats, dossierCategories: doss, certCategories: certs, fileCategories: files }));
-                                                    }} className="px-2.5 py-1.5 text-xs font-medium text-yim-600 opacity-70 bg-yim-100 hover:bg-yim-200 rounded-md transition-colors">Alles aan</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="p-5 space-y-5">
-                                        {/* Persoonsgegevens */}
-                                        <div>
-                                            <p className="text-xs font-medium text-yim-600 opacity-50 uppercase tracking-wide mb-2.5">Persoonsgegevens</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {dataGroups.map(group => {
-                                                    const isActive = !!editForm.categories?.[group.id];
-                                                    const isSensitive = group.sensitivity === 'gevoelig' || group.sensitivity === 'zeer_gevoelig';
-                                                    return (
-                                                        <button key={group.id} onClick={() => setEditForm(prev => ({ ...prev, categories: { ...prev.categories, [group.id]: !prev.categories?.[group.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                            {isActive && (
-                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            )}
-                                                            {isSensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${group.sensitivity === 'zeer_gevoelig' ? (isActive ? 'bg-red-300' : 'bg-yim-red') : (isActive ? 'bg-orange-300' : 'bg-yim-orange')}`}></span>}
-                                                            {group.name}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                        {/* Dossier */}
-                                        <div>
-                                            <p className="text-xs font-medium text-yim-600 opacity-50 uppercase tracking-wide mb-2.5">Dossier</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {dossierComponents.map(component => {
-                                                    const isActive = !!editForm.dossierCategories?.[component.id];
-                                                    return (
-                                                        <button key={component.id} onClick={() => setEditForm(prev => ({ ...prev, dossierCategories: { ...prev.dossierCategories, [component.id]: !prev.dossierCategories?.[component.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                            {isActive && (
-                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            )}
-                                                            {component.sensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-red-300' : 'bg-yim-red'}`}></span>}
-                                                            {component.name}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                        {/* Certificaten */}
-                                        <div>
-                                            <p className="text-xs font-medium text-yim-600 opacity-50 uppercase tracking-wide mb-2.5">Certificaten</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {certificateCategories.map(cert => {
-                                                    const isActive = !!editForm.certCategories?.[cert.id];
-                                                    return (
-                                                        <button key={cert.id} onClick={() => setEditForm(prev => ({ ...prev, certCategories: { ...prev.certCategories, [cert.id]: !prev.certCategories?.[cert.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                            {isActive && (
-                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            )}
-                                                            {cert.sensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-red-300' : 'bg-yim-red'}`}></span>}
-                                                            {cert.name}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                        {/* Bestanden */}
-                                        <div>
-                                            <p className="text-xs font-medium text-yim-600 opacity-50 uppercase tracking-wide mb-2.5">Bestanden</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {fileCategories.map(file => {
-                                                    const isActive = !!editForm.fileCategories?.[file.id];
-                                                    return (
-                                                        <button key={file.id} onClick={() => setEditForm(prev => ({ ...prev, fileCategories: { ...prev.fileCategories, [file.id]: !prev.fileCategories?.[file.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                            {isActive && (
-                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            )}
-                                                            {file.sensitive && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-red-300' : 'bg-yim-red'}`}></span>}
-                                                            {file.name}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {/* canReveal toggle */}
-                                    <div className="border-t border-yim-200 px-5 py-4 bg-yim-50">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
-                                                <div>
-                                                    <p className="font-medium text-yim-600">Tijdelijk onthullen</p>
-                                                    <p className="text-xs text-yim-600 opacity-60">Mag gemaskeerde velden tijdelijk (5 sec) bekijken</p>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => setEditForm(prev => ({ ...prev, canReveal: !prev.canReveal }))} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.canReveal ? 'bg-yim-500' : 'bg-yim-300'}`}>
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editForm.canReveal ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                </>
-                                )}
+                                {/* OLD CONCEPT B BLOCK REMOVED - replaced by preset-first UI above */}
 
                             </div>
                         </div>
@@ -1827,9 +1771,8 @@
                                                         {concept === 'A' ? (
                                                             <th className="px-6 py-3 text-left text-sm font-normal text-white">Profiel</th>
                                                         ) : (
-                                                            <th className="px-6 py-3 text-left text-sm font-normal text-white">Categorieën</th>
+                                                            <th className="px-6 py-3 text-left text-sm font-normal text-white">Data zichtbaarheid</th>
                                                         )}
-                                                        {concept === 'B' && <th className="px-6 py-3 text-left text-sm font-normal text-white">Scope</th>}
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">Onthullen</th>
                                                         <th className="px-6 py-3 text-right text-sm font-normal text-white"></th>
                                                     </tr>
@@ -1853,19 +1796,22 @@
                                                                         <span className="inline-flex items-center text-xs text-yim-500 bg-yim-50 px-2 py-1 rounded border border-yim-200">
                                                                             {rp?.name || 'Geen'}
                                                                         </span>
-                                                                    ) : (
-                                                                        <span className="inline-flex items-center text-xs text-yim-500 bg-yim-50 px-2 py-1 rounded border border-yim-200">
-                                                                            {roleTotalCat}/{roleTotalMax} categorieën
-                                                                        </span>
-                                                                    )}
+                                                                    ) : (() => {
+                                                                        const rowPreset = matchPreset(roleData);
+                                                                        const scopeLabel = roleData.allowedScopes?.subcontractors ? 'Incl. onderaannemers' : 'Eigen organisatie';
+                                                                        return (
+                                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                                <span className="inline-flex items-center text-xs font-medium text-yim-600 bg-yim-50 px-2 py-1 rounded border border-yim-200">
+                                                                                    {rowPreset ? rowPreset.name : 'Aangepast'}
+                                                                                </span>
+                                                                                <span className="text-xs text-yim-400">·</span>
+                                                                                <span className="text-xs text-yim-500">{roleTotalCat}/{roleTotalMax}</span>
+                                                                                <span className="text-xs text-yim-400">·</span>
+                                                                                <span className="text-xs text-yim-500">{scopeLabel}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
                                                                 </td>
-                                                                {concept === 'B' && (
-                                                                <td className="px-6 py-4">
-                                                                    <span className="inline-flex items-center text-xs text-yim-500 bg-yim-50 px-2 py-1 rounded border border-yim-200">
-                                                                        {Object.values(roleData.allowedScopes || {}).filter(Boolean).length}/2 scopes
-                                                                    </span>
-                                                                </td>
-                                                                )}
                                                                 <td className="px-6 py-4">
                                                                     {roleCanReveal ? (
                                                                         <span className="inline-flex items-center gap-1 text-xs text-yim-green bg-yim-green/10 px-2 py-1 rounded">
