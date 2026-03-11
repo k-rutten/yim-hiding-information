@@ -194,13 +194,36 @@
         ];
 
         const CATEGORY_MIN_LEVEL = {
-            identity: 1, contact_work: 2, compliance: 2, hours: 2,
-            access: 2, address: 3, employment: 3, government_id: 4,
-            foto: 1, vca_certificaten: 1, gewerkte_uren: 2,
-            identificatie_locatie: 3, posted_worker: 3, sociale_lasten: 3, identificatie_bsn: 4,
-            vca: 1, bhv: 2, werkvergunning: 3, rijbewijs: 3, vog: 4,
-            a1_verklaring: 3, verzekeringsbewijs: 3,
-            arbeidsovereenkomst: 4, loonstroken: 4, id_kopie: 4
+            // Persoonsgegevens
+            identity: 1, foto: 1, nationality: 2, contact_work: 2, address: 3, government_id: 4,
+            // Dossier
+            compliance: 2, hours: 2, gewerkte_uren: 2, employment: 3, posted_worker: 3, sociale_lasten: 3,
+            // Certificaten
+            vca: 1, vca_certificaten: 1, bhv: 2, rijbewijs: 3, werkvergunning: 3, vog: 4,
+            // Bestanden
+            a1_verklaring: 3, verzekeringsbewijs: 3, arbeidsovereenkomst: 4, loonstroken: 4, id_kopie: 4,
+            // Legacy (used by concepts A/B/E)
+            access: 2, identificatie_locatie: 3, identificatie_bsn: 4
+        };
+
+        // ============ CONCEPT E: Hard Boundary Rules (platform-enforced, not configurable) ============
+        const HARD_BOUNDARY_RULES = [
+            { id: 'zeer_gevoelig_persoonsgegevens', label: 'Zeer gevoelige persoonsgegevens',
+              description: 'BSN, documentnummers en overheids-ID',
+              blockedCategories: ['government_id'], blockedDossier: ['identificatie_bsn'],
+              blockedCerts: ['vog'], blockedFiles: ['arbeidsovereenkomst', 'loonstroken', 'id_kopie'],
+              rule: 'Alleen eigen organisatie' },
+            { id: 'loongegevens', label: 'Loon- en contractgegevens',
+              description: 'Sociale lasten en verloning',
+              blockedCategories: [], blockedDossier: ['sociale_lasten'],
+              blockedCerts: [], blockedFiles: [],
+              rule: 'Alleen eigen organisatie' }
+        ];
+        const HARD_BLOCKED = {
+            categories: new Set(HARD_BOUNDARY_RULES.flatMap(r => r.blockedCategories)),
+            dossier: new Set(HARD_BOUNDARY_RULES.flatMap(r => r.blockedDossier)),
+            certs: new Set(HARD_BOUNDARY_RULES.flatMap(r => r.blockedCerts)),
+            files: new Set(HARD_BOUNDARY_RULES.flatMap(r => r.blockedFiles))
         };
 
         // ============ ROLE SETTINGS DATA (from Figma design) ============
@@ -483,7 +506,19 @@
               allowedScopes: { own_company: true, subcontractors: false } }
         };
 
-        function App({ roles, setRoles, visibilityProfiles, setVisibilityProfiles, currentTab, setCurrentTab, concept }) {
+        // Concept E uses same data shape as B (categories on role), deep-copied
+        const initialRolesE = {};
+        Object.keys(initialRolesB).forEach(k => {
+            initialRolesE[k] = { ...initialRolesB[k],
+                categories: { ...initialRolesB[k].categories },
+                dossierCategories: { ...initialRolesB[k].dossierCategories },
+                certCategories: { ...initialRolesB[k].certCategories },
+                fileCategories: { ...initialRolesB[k].fileCategories },
+                allowedScopes: { ...initialRolesB[k].allowedScopes }
+            };
+        });
+
+        function App({ roles, setRoles, visibilityProfiles, setVisibilityProfiles, currentTab, setCurrentTab, concept, viewerContext, setViewerContext }) {
             const [currentRole, setCurrentRole] = useState('admin');
             const [showHelp, setShowHelp] = useState(true);
             const [auditLog, setAuditLog] = useState([]);
@@ -545,9 +580,25 @@
 
             const DataField = ({ label, value, sensitive, fieldId, groupId }) => {
                 // Check visibility based on active concept
-                const isVisible = concept === 'A'
+                const baseVisible = concept === 'A'
                     ? (profile?.dataGroups[groupId] === 'show')
                     : (role.categories?.[groupId] === true);
+                const isHardBlocked = concept === 'E' && viewerContext === 'cross_company' && HARD_BLOCKED.categories.has(groupId);
+                const isScopeBlocked = concept === 'C' && viewerContext === 'cross_company' && role.scopePerLevel && (role.scopePerLevel[CATEGORY_MIN_LEVEL[groupId] || 1] === 'own_company');
+                const isBlocked = isHardBlocked || isScopeBlocked;
+                const isVisible = baseVisible && !isBlocked;
+                if (!isVisible && !isBlocked) return null;
+                if (isBlocked) return (
+                    <div className="flex justify-between items-start py-3 border-b border-yim-100 last:border-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-yim-600 opacity-70 w-36">{label}</span>
+                            <svg className={`w-3.5 h-3.5 ${isHardBlocked ? 'text-purple-400' : 'text-[#6daeba]'}`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded border ${isHardBlocked ? 'text-purple-500 bg-purple-50 border-purple-200' : 'text-[#6daeba] bg-[#e8f4f7] border-[#6daeba]/20'}`}>
+                            {isHardBlocked ? 'Platform-geblokkeerd' : 'Organisatie-beperkt'}
+                        </span>
+                    </div>
+                );
                 if (!isVisible) return null;
 
                 const fieldKey = `${groupId}.${fieldId}`;
@@ -610,6 +661,29 @@
                 const hasVisibleGroup = concept === 'A'
                     ? groups.some(g => profile?.dataGroups[g] === 'show')
                     : groups.some(g => role.categories?.[g] === true);
+                const allHardBlocked = concept === 'E' && viewerContext === 'cross_company' && groups.every(g => HARD_BLOCKED.categories.has(g));
+                const someHardBlocked = concept === 'E' && viewerContext === 'cross_company' && groups.some(g => HARD_BLOCKED.categories.has(g));
+                const allScopeBlocked = concept === 'C' && viewerContext === 'cross_company' && role.scopePerLevel && groups.every(g => role.scopePerLevel[CATEGORY_MIN_LEVEL[g] || 1] === 'own_company');
+
+                if ((allHardBlocked || allScopeBlocked) && hasVisibleGroup) {
+                    const isPlatform = allHardBlocked;
+                    return (
+                        <div className={`bg-white rounded-xl border p-6 ${isPlatform ? 'border-purple-200' : 'border-[#6daeba]/30'}`}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isPlatform ? 'bg-purple-100' : 'bg-[#e8f4f7]'}`}>
+                                    <svg className={`w-5 h-5 ${isPlatform ? 'text-purple-500' : 'text-[#6daeba]'}`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                </div>
+                                <h3 className="text-base font-semibold text-yim-600 flex-1">{title}</h3>
+                                <span className={`text-xs px-2 py-0.5 rounded border ${isPlatform ? 'text-purple-500 bg-purple-50 border-purple-200' : 'text-[#6daeba] bg-[#e8f4f7] border-[#6daeba]/20'}`}>
+                                    {isPlatform ? 'Platform-geblokkeerd' : 'Organisatie-beperkt'}
+                                </span>
+                            </div>
+                            <p className={`text-sm opacity-70 ${isPlatform ? 'text-purple-600' : 'text-[#6daeba]'}`}>
+                                {isPlatform ? 'Deze gegevens zijn geblokkeerd door platformregels bij cross-company toegang.' : 'Deze gegevens zijn beperkt tot de eigen organisatie op basis van gevoeligheidsniveau.'}
+                            </p>
+                        </div>
+                    );
+                }
 
                 if (!hasVisibleGroup) {
                     return (
@@ -710,6 +784,64 @@
                     <div className="max-w-6xl mx-auto px-6 py-8">
                         {currentTab === 'viewer' && (
                         <>
+                        {/* Concept E: Company Context Switcher */}
+                        {concept === 'E' && (
+                            <div className="mb-6 bg-purple-50 rounded-xl p-5 border border-purple-200">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-yim-600 mb-1 flex items-center gap-2">
+                                            <svg className="w-4 h-4 text-purple-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                            Bedrijfscontext
+                                        </h3>
+                                        <p className="text-xs text-yim-600 opacity-60">
+                                            {viewerContext === 'cross_company'
+                                                ? 'Harde grenzen actief — zeer gevoelige data is geblokkeerd'
+                                                : 'Eigen organisatie — alle data beschikbaar per rolrechten'}
+                                        </p>
+                                    </div>
+                                    <div className="inline-flex rounded-lg border border-purple-200 overflow-hidden">
+                                        <button onClick={() => setViewerContext('own_company')}
+                                            className={`px-4 py-2 text-sm font-medium transition-all ${viewerContext === 'own_company' ? 'bg-purple-500 text-white' : 'bg-white text-yim-600 hover:bg-purple-50'}`}>
+                                            Eigen organisatie
+                                        </button>
+                                        <button onClick={() => setViewerContext('cross_company')}
+                                            className={`px-4 py-2 text-sm font-medium transition-all ${viewerContext === 'cross_company' ? 'bg-purple-500 text-white' : 'bg-white text-yim-600 hover:bg-purple-50'}`}>
+                                            Hoofdcontractor
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Concept C V4: Company Context Switcher (teal variant) */}
+                        {concept === 'C' && role.scopePerLevel && (
+                            <div className="mb-6 bg-[#e8f4f7] rounded-xl p-5 border border-[#6daeba]/30">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-yim-600 mb-1 flex items-center gap-2">
+                                            <svg className="w-4 h-4 text-[#6daeba]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                            Bedrijfscontext
+                                        </h3>
+                                        <p className="text-xs text-yim-600 opacity-60">
+                                            {viewerContext === 'cross_company'
+                                                ? 'Scope per niveau actief — data beperkt per gevoeligheidsniveau'
+                                                : 'Eigen organisatie — alle data beschikbaar per rolrechten'}
+                                        </p>
+                                    </div>
+                                    <div className="inline-flex rounded-lg border border-[#6daeba]/30 overflow-hidden">
+                                        <button onClick={() => setViewerContext('own_company')}
+                                            className={`px-4 py-2 text-sm font-medium transition-all ${viewerContext === 'own_company' ? 'bg-[#6daeba] text-white' : 'bg-white text-yim-600 hover:bg-[#e8f4f7]'}`}>
+                                            Eigen organisatie
+                                        </button>
+                                        <button onClick={() => setViewerContext('cross_company')}
+                                            className={`px-4 py-2 text-sm font-medium transition-all ${viewerContext === 'cross_company' ? 'bg-[#6daeba] text-white' : 'bg-white text-yim-600 hover:bg-[#e8f4f7]'}`}>
+                                            Hoofdcontractor
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Role Selector */}
                         <div className="mb-8">
                             <label className="block text-sm font-medium text-yim-600 mb-3">
@@ -979,113 +1111,119 @@
         }
 
         // Data Groups Configuration
-        const dataGroups = [
+        // ============ CATEGORY HIERARCHY (Concept C V3/V4) ============
+        // Hoofdcategorie (UI) → Categorie (autorisatie) → Velden
+        const CATEGORY_HIERARCHY = [
             {
-                id: 'identity',
-                name: 'Identiteit (basis)',
-                sensitivity: 'basis',
-                description: 'Basisidentificatie van de persoon',
-                fields: [
-                    { name: 'Voornaam', description: 'Officiële voornaam' },
-                    { name: 'Achternaam', description: 'Officiële achternaam' },
-                    { name: 'Geboortedatum', description: 'Datum van geboorte' }
+                id: 'persoonsgegevens', label: 'Persoonsgegevens',
+                subcategories: [
+                    { id: 'identity', name: 'Identiteit (basis)', fields: ['Voornaam', 'Achternaam', 'Geboortedatum'] },
+                    { id: 'foto', name: 'Foto', fields: ['Pasfoto', 'ID-foto'] },
+                    { id: 'nationality', name: 'Nationaliteit', fields: ['Nationaliteit', 'Vestigingsland'] },
+                    { id: 'contact_work', name: 'Contact (werk)', fields: ['Zakelijk e-mail', 'Zakelijk telefoon'] },
+                    { id: 'address', name: 'Adres / woonplaats', fields: ['Woonplaats', 'Postcode', 'Straat + huisnummer'] },
+                    { id: 'government_id', name: 'Identificatie (BSN / documentnummer)', fields: ['BSN', 'Documentnummer', 'Documenttype', 'Verloopdatum'] }
                 ]
             },
             {
-                id: 'contact_work',
-                name: 'Contact (werk)',
-                sensitivity: 'basis',
-                description: 'Zakelijke contactgegevens',
-                fields: [
-                    { name: 'Zakelijk e-mail', description: 'Bedrijfs e-mailadres' },
-                    { name: 'Zakelijk telefoon', description: 'Werktelefoon of mobiel' }
+                id: 'dossier', label: 'Dossier',
+                subcategories: [
+                    { id: 'employment', name: 'Arbeidsgegevens', fields: ['Bedrijf', 'Functie', 'Contract type', 'Startdatum'] },
+                    { id: 'posted_worker', name: 'Posted Worker (WagwEU)', fields: ['A1-verklaring', 'Werkvergunning', 'Detacheringsovereenkomst'] },
+                    { id: 'sociale_lasten', name: 'Sociale lasten', fields: ['Verzekeringsland', 'A1-status', 'Premieplicht'] },
+                    { id: 'compliance', name: 'Compliance (status)', fields: ['VCA status', 'VCA verloopdatum', 'VOG status'] },
+                    { id: 'hours', name: 'Uren / inzet', fields: ['Gewerkte uren', 'Project toewijzing'] },
+                    { id: 'gewerkte_uren', name: 'Gewerkte uren', fields: ['Uren per dag', 'Totaal uren'] }
                 ]
             },
             {
-                id: 'address',
-                name: 'Adres / woonplaats',
-                sensitivity: 'gevoelig',
-                description: 'Privé woonadresgegevens',
-                fields: [
-                    { name: 'Woonplaats', description: 'Stad of gemeente' },
-                    { name: 'Postcode', description: 'Postcode' },
-                    { name: 'Straat + huisnummer', description: 'Volledig adres' }
+                id: 'certificaten', label: 'Certificaten',
+                subcategories: [
+                    { id: 'vca', name: 'VCA-certificaat', fields: ['VCA-basis', 'VCA-VOL', 'Verloopdatum'] },
+                    { id: 'vog', name: 'VOG', fields: ['VOG status', 'Afgiftedatum'] },
+                    { id: 'bhv', name: 'BHV-certificaat', fields: ['BHV status', 'Verloopdatum'] },
+                    { id: 'werkvergunning', name: 'Werkvergunning', fields: ['Vergunningtype', 'Verloopdatum'] },
+                    { id: 'rijbewijs', name: 'Rijbewijs', fields: ['Categorie', 'Verloopdatum'] },
+                    { id: 'vca_certificaten', name: 'VCA certificaten', fields: ['VCA-basis', 'VCA-VOL', 'Certificaatnummer'] }
                 ]
             },
             {
-                id: 'government_id',
-                name: 'Overheids-ID',
-                sensitivity: 'zeer_gevoelig',
-                description: 'Officiële identificatiedocumenten',
-                fields: [
-                    { name: 'BSN', description: 'Burgerservicenummer' },
-                    { name: 'Documentnummer', description: 'Paspoort of ID-kaart nummer' }
-                ]
-            },
-            {
-                id: 'compliance',
-                name: 'Compliance (status)',
-                sensitivity: 'basis',
-                description: 'Certificaten en compliance status',
-                fields: [
-                    { name: 'VCA status', description: 'Veiligheid Checklist Aannemers' },
-                    { name: 'VCA verloopdatum', description: 'Geldigheid certificaat' },
-                    { name: 'VOG status', description: 'Verklaring Omtrent Gedrag' }
-                ]
-            },
-            {
-                id: 'hours',
-                name: 'Uren / inzet',
-                sensitivity: 'basis',
-                description: 'Gewerkte uren en inzet details',
-                fields: [
-                    { name: 'Gewerkte uren', description: 'Totaal uren per periode' },
-                    { name: 'Project toewijzing', description: 'Actieve projecten' }
-                ]
-            },
-            {
-                id: 'employment',
-                name: 'Arbeidsgegevens',
-                sensitivity: 'gevoelig',
-                description: 'Contract en dienstverband info',
-                fields: [
-                    { name: 'Bedrijf', description: 'Werkgever' },
-                    { name: 'Functie', description: 'Functietitel' },
-                    { name: 'Contract type', description: 'Vast/tijdelijk/ZZP' },
-                    { name: 'Startdatum', description: 'Datum indiensttreding' }
-                ]
-            },
-            {
-                id: 'access',
-                name: 'Toegangsrechten',
-                sensitivity: 'gevoelig',
-                description: 'Fysieke en digitale toegang',
-                fields: [
-                    { name: 'Locaties', description: 'Toegestane werklocaties' },
-                    { name: 'Zones', description: 'Toegangszones' },
-                    { name: 'Pasnummer', description: 'Toegangspasnummer' }
+                id: 'bestanden', label: 'Bestanden',
+                subcategories: [
+                    { id: 'arbeidsovereenkomst', name: 'Arbeidsovereenkomst', fields: ['Contract', 'Voorwaarden'] },
+                    { id: 'loonstroken', name: 'Loonstroken', fields: ['Salarisspecificatie'] },
+                    { id: 'id_kopie', name: 'ID-document', fields: ['Kopie paspoort', 'Kopie ID-kaart'] },
+                    { id: 'a1_verklaring', name: 'A1-verklaring', fields: ['A1-formulier', 'Geldigheid'] },
+                    { id: 'verzekeringsbewijs', name: 'Verzekeringsbewijs', fields: ['Polis', 'Dekkingsbewijs'] }
                 ]
             }
         ];
 
-        // Visibility modes - binary: show or hide
+        // Flat list of all subcategories (for iteration)
+        const ALL_SUBCATEGORIES = CATEGORY_HIERARCHY.flatMap(h => h.subcategories);
+
+        // 3-level grouping for V3/V4 display: Hoofdcategorie → Categorie (autorisatie) → Velden
+        const CATEGORY_GROUPING = [
+            {
+                id: 'persoonsgegevens', label: 'Persoonsgegevens',
+                groups: [
+                    { id: 'grp_identity', name: 'Identiteit', subcatIds: ['identity', 'foto', 'nationality'] },
+                    { id: 'grp_contact', name: 'Contact', subcatIds: ['contact_work', 'address'] },
+                    { id: 'grp_government_id', name: 'Overheids-ID', subcatIds: ['government_id'] }
+                ]
+            },
+            {
+                id: 'dossier', label: 'Dossier',
+                groups: [
+                    { id: 'grp_employment', name: 'Arbeidsgegevens', subcatIds: ['employment', 'posted_worker', 'sociale_lasten'] },
+                    { id: 'grp_compliance', name: 'Compliance', subcatIds: ['compliance'] },
+                    { id: 'grp_time_tracking', name: 'Uren', subcatIds: ['hours', 'gewerkte_uren'] }
+                ]
+            },
+            {
+                id: 'certificaten', label: 'Certificaten',
+                groups: [
+                    { id: 'grp_certificates', name: 'Certificaten', subcatIds: ['vca', 'vog', 'bhv', 'werkvergunning', 'rijbewijs', 'vca_certificaten'] }
+                ]
+            },
+            {
+                id: 'bestanden', label: 'Bestanden',
+                groups: [
+                    { id: 'grp_documents', name: 'Documenten', subcatIds: ['arbeidsovereenkomst', 'loonstroken', 'id_kopie', 'a1_verklaring', 'verzekeringsbewijs'] }
+                ]
+            }
+        ];
+        const ALL_GROUPS = CATEGORY_GROUPING.flatMap(h => h.groups);
+        const SUBCAT_BY_ID = {};
+        ALL_SUBCATEGORIES.forEach(s => { SUBCAT_BY_ID[s.id] = s; });
+
+        // ============ LEGACY CATEGORY ARRAYS (used by Concepts A, B, E) ============
+        const dataGroups = [
+            { id: 'identity', name: 'Identiteit (basis)', sensitivity: 'basis', description: 'Basisidentificatie', fields: [{ name: 'Voornaam' }, { name: 'Achternaam' }, { name: 'Geboortedatum' }] },
+            { id: 'contact_work', name: 'Contact (werk)', sensitivity: 'basis', description: 'Zakelijke contactgegevens', fields: [{ name: 'Zakelijk e-mail' }, { name: 'Zakelijk telefoon' }] },
+            { id: 'address', name: 'Adres / woonplaats', sensitivity: 'gevoelig', description: 'Privé woonadresgegevens', fields: [{ name: 'Woonplaats' }, { name: 'Postcode' }, { name: 'Straat + huisnummer' }] },
+            { id: 'government_id', name: 'Overheids-ID', sensitivity: 'zeer_gevoelig', description: 'Officiële identificatiedocumenten', fields: [{ name: 'BSN' }, { name: 'Documentnummer' }] },
+            { id: 'compliance', name: 'Compliance (status)', sensitivity: 'basis', description: 'Certificaten en compliance status', fields: [{ name: 'VCA status' }, { name: 'VOG status' }] },
+            { id: 'hours', name: 'Uren / inzet', sensitivity: 'basis', description: 'Gewerkte uren', fields: [{ name: 'Gewerkte uren' }, { name: 'Project toewijzing' }] },
+            { id: 'employment', name: 'Arbeidsgegevens', sensitivity: 'gevoelig', description: 'Contract en dienstverband', fields: [{ name: 'Bedrijf' }, { name: 'Functie' }, { name: 'Contract type' }] },
+            { id: 'access', name: 'Toegangsrechten', sensitivity: 'gevoelig', description: 'Fysieke en digitale toegang', fields: [{ name: 'Locaties' }, { name: 'Zones' }, { name: 'Pasnummer' }] }
+        ];
+
         const visibilityModes = [
             { value: 'hidden', label: 'Verbergen' },
             { value: 'show', label: 'Tonen' }
         ];
 
-        // Dossier Components Configuration (Tab 2) - with fields for expandable view
         const dossierComponents = [
             { id: 'foto', name: 'Foto', description: 'Profielfoto', fields: ['Pasfoto', 'ID-foto'] },
             { id: 'identificatie_locatie', name: 'Identificatie (nationaliteit)', description: 'Nationaliteit & locatie', fields: ['Nationaliteit', 'Vestigingsland', 'Woonplaats'] },
             { id: 'identificatie_bsn', name: 'Identificatie (BSN/Doc.nr)', description: 'ID-nummer of BSN', sensitive: true, fields: ['BSN', 'Documentnummer', 'Documenttype', 'Verloopdatum'] },
-            { id: 'posted_worker', name: 'Posted Worker (WagwEU)', description: 'Gedetacheerde werknemer', fields: ['A1-verklaring', 'Werkvergunning', 'Detacheringsovereenkomst', 'Loonstrook herkomstland'] },
+            { id: 'posted_worker', name: 'Posted Worker (WagwEU)', description: 'Gedetacheerde werknemer', fields: ['A1-verklaring', 'Werkvergunning', 'Detacheringsovereenkomst'] },
             { id: 'sociale_lasten', name: 'Sociale lasten', description: 'Sociale verzekeringen', fields: ['Verzekeringsland', 'A1-status', 'Premieplicht'] },
             { id: 'gewerkte_uren', name: 'Gewerkte uren', description: 'Overzicht gewerkte uren', fields: ['Uren per dag', 'Totaal uren', 'Projecttoewijzing'] },
             { id: 'vca_certificaten', name: 'VCA-certificaten', description: 'Veiligheidscertificaten', fields: ['VCA-basis', 'VCA-VOL', 'Verloopdatum', 'Certificaatnummer'] }
         ];
 
-        // Certificate categories
         const certificateCategories = [
             { id: 'vca', name: 'VCA-certificaat', description: 'Veiligheid Checklist Aannemers' },
             { id: 'vog', name: 'VOG', description: 'Verklaring Omtrent Gedrag', sensitive: true },
@@ -1094,7 +1232,6 @@
             { id: 'rijbewijs', name: 'Rijbewijs', description: 'Rijbewijscategorie en geldigheid' }
         ];
 
-        // File/document categories
         const fileCategories = [
             { id: 'arbeidsovereenkomst', name: 'Arbeidsovereenkomst', description: 'Contract en voorwaarden', sensitive: true },
             { id: 'loonstroken', name: 'Loonstroken', description: 'Salarisspecificaties', sensitive: true },
@@ -1113,12 +1250,23 @@
                 });
                 return result;
             };
-            return {
+            const result = {
                 categories: compute(dataGroups, 'categories'),
                 dossierCategories: compute(dossierComponents, 'dossierCategories'),
                 certCategories: compute(certificateCategories, 'certCategories'),
                 fileCategories: compute(fileCategories, 'fileCategories')
             };
+            // Also include hierarchy subcategories not in legacy arrays
+            CATEGORY_HIERARCHY.forEach(h => {
+                const bucket = h.id === 'persoonsgegevens' ? 'categories' : h.id === 'dossier' ? 'dossierCategories' : h.id === 'certificaten' ? 'certCategories' : 'fileCategories';
+                h.subcategories.forEach(s => {
+                    if (result[bucket][s.id] === undefined) {
+                        const base = CATEGORY_MIN_LEVEL[s.id] <= level;
+                        result[bucket][s.id] = exceptions[bucket]?.[s.id] !== undefined ? exceptions[bucket][s.id] : base;
+                    }
+                });
+            });
+            return result;
         };
 
         // ============ Derivation Engine (Task → Category Mapping, used by Concept C suggestion) ============
@@ -1218,18 +1366,20 @@
 
         // ============ Concept C roles (sensitivity level based + derived justifications) ============
         const initialRolesC = (() => {
-            const makeRole = (name, desc, level, settingsFactory, canReveal, subcontractors) => {
+            const defaultScopePerLevel = { 1: 'all', 2: 'all', 3: 'own_company', 4: 'own_company' };
+            const makeRole = (name, desc, level, settingsFactory, canReveal, subcontractors, scopePerLevel) => {
                 const rs = settingsFactory();
                 const { _justifications } = suggestSensitivityLevel(rs);
                 return { name, description: desc, sensitivityLevel: level, exceptions: {}, canReveal, roleSettings: rs,
-                  ...getCategoriesForLevel(level), _justifications, allowedScopes: { own_company: true, subcontractors } };
+                  ...getCategoriesForLevel(level), _justifications, allowedScopes: { own_company: true, subcontractors },
+                  scopePerLevel: scopePerLevel || { ...defaultScopePerLevel } };
             };
             return {
-                admin: makeRole("Administrator", "Volledige toegang", 4, createAdminRoleSettings, true, true),
-                hr: makeRole("HR Manager", "Persoons- en arbeidsgegevens", 3, createHRRoleSettings, true, true),
-                security: makeRole("Security Manager", "Compliance en toegang", 2, createSecurityRoleSettings, false, false),
-                contractor: makeRole("Contractor", "Beperkte toegang", 2, createSecurityRoleSettings, false, false),
-                guest: makeRole("Guest", "Basis verificatie", 1, createMinimalRoleSettings, false, false)
+                admin: makeRole("Administrator", "Volledige toegang", 4, createAdminRoleSettings, true, true, { 1: 'all', 2: 'all', 3: 'all', 4: 'all' }),
+                hr: makeRole("HR Manager", "Persoons- en arbeidsgegevens", 3, createHRRoleSettings, true, true, { 1: 'all', 2: 'all', 3: 'own_company', 4: 'own_company' }),
+                security: makeRole("Security Manager", "Compliance en toegang", 2, createSecurityRoleSettings, false, false, { 1: 'all', 2: 'own_company', 3: 'own_company', 4: 'own_company' }),
+                contractor: makeRole("Contractor", "Beperkte toegang", 2, createSecurityRoleSettings, false, false, { 1: 'all', 2: 'own_company', 3: 'own_company', 4: 'own_company' }),
+                guest: makeRole("Guest", "Basis verificatie", 1, createMinimalRoleSettings, false, false, { 1: 'own_company', 2: 'own_company', 3: 'own_company', 4: 'own_company' })
             };
         })();
 
@@ -1463,6 +1613,8 @@
             const [editForm, setEditForm] = useState({});
             const [profileEditForm, setProfileEditForm] = useState({});
             const [expandedGroups, setExpandedGroups] = useState({});
+            const [dataViewVariant, setDataViewVariant] = useState(3);
+            const [expandedCatGroups, setExpandedCatGroups] = useState(new Set());
             const [deleteConfirm, setDeleteConfirm] = useState(null);
             const [deleteProfileConfirm, setDeleteProfileConfirm] = useState(null);
             const [isNewRole, setIsNewRole] = useState(false);
@@ -1473,16 +1625,101 @@
             const [showAllRoles, setShowAllRoles] = useState(false);
             const [saveConfirm, setSaveConfirm] = useState(false);
 
+            // ============ GROEPENBEHEER STATE (Concept B) ============
+            const [customGroups, setCustomGroups] = useState([
+                { id: 'categories', label: 'Persoonsgegevens', items: dataGroups.map(g => g.id) },
+                { id: 'dossierCategories', label: 'Dossier', items: dossierComponents.map(c => c.id) },
+                { id: 'certCategories', label: 'Certificaten', items: certificateCategories.map(c => c.id) },
+                { id: 'fileCategories', label: 'Bestanden', items: fileCategories.map(c => c.id) }
+            ]);
+            const [editingGroupId, setEditingGroupId] = useState(null);
+            const [editingGroupLabel, setEditingGroupLabel] = useState('');
+            const [deleteConfirmGroupId, setDeleteConfirmGroupId] = useState(null);
+
+            // ============ CONCEPT B: UX Groups with Presets (admin-managed) ============
+            const [uxGroups, setUxGroups] = useState([
+                { id: 'standaard', label: 'Standaard presets', description: 'Platform-standaard inzageprofielen voor veelvoorkomende rollen', presetIds: ['full', 'standard', 'operational', 'minimal'] }
+            ]);
+            const [editingUxGroupId, setEditingUxGroupId] = useState(null);
+            const [editingUxGroupLabel, setEditingUxGroupLabel] = useState('');
+            const [expandedPresetId, setExpandedPresetId] = useState(null);
+
+            const presetUsageByRole = React.useMemo(() => {
+                const usage = {};
+                PRESETS.forEach(p => { usage[p.id] = []; });
+                Object.entries(roles).forEach(([key, role]) => {
+                    const matched = PRESETS.find(p => {
+                        const catMatch = Object.keys(p.categories).every(k => !!p.categories[k] === !!role.categories?.[k]);
+                        const dosMatch = Object.keys(p.dossierCategories).every(k => !!p.dossierCategories[k] === !!role.dossierCategories?.[k]);
+                        return catMatch && dosMatch;
+                    });
+                    if (matched) usage[matched.id].push(role.name);
+                });
+                return usage;
+            }, [roles]);
+
+            const allCategoryLookup = React.useMemo(() => {
+                const map = {};
+                dataGroups.forEach(g => { map[g.id] = { name: g.name, source: 'Persoonsgegevens', sensitivity: g.sensitivity }; });
+                dossierComponents.forEach(c => { map[c.id] = { name: c.name, source: 'Dossier', sensitive: c.sensitive }; });
+                certificateCategories.forEach(c => { map[c.id] = { name: c.name, source: 'Certificaten', sensitive: c.sensitive }; });
+                fileCategories.forEach(c => { map[c.id] = { name: c.name, source: 'Bestanden', sensitive: c.sensitive }; });
+                return map;
+            }, []);
+
+            const moveCategory = (catId, fromGroupId, toGroupId) => {
+                setCustomGroups(prev => Array.isArray(prev) ? prev.map(g => {
+                    if (g.id === fromGroupId) return { ...g, items: g.items.filter(id => id !== catId) };
+                    if (g.id === toGroupId) return { ...g, items: [...g.items, catId] };
+                    return g;
+                }) : prev);
+            };
+
+            const addNewGroup = () => {
+                const newId = 'custom_' + Date.now();
+                setCustomGroups(prev => [...prev, { id: newId, label: 'Nieuwe groep', items: [] }]);
+                setEditingGroupId(newId);
+                setEditingGroupLabel('Nieuwe groep');
+            };
+
+            const renameGroup = (groupId) => {
+                if (!editingGroupLabel.trim()) return;
+                setCustomGroups(prev => Array.isArray(prev) ? prev.map(g =>
+                    g.id === groupId ? { ...g, label: editingGroupLabel.trim() } : g
+                ) : prev);
+                setEditingGroupId(null);
+            };
+
+            const deleteGroup = (groupId) => {
+                setCustomGroups(prev => prev.filter(g => g.id !== groupId));
+                setDeleteConfirmGroupId(null);
+            };
+
+            const assignedCategoryIds = React.useMemo(() => {
+                const set = new Set();
+                customGroups.forEach(g => g.items.forEach(id => set.add(id)));
+                return set;
+            }, [customGroups]);
+
+            const allCategoryIds = React.useMemo(() =>
+                [...dataGroups.map(g => g.id), ...dossierComponents.map(c => c.id), ...certificateCategories.map(c => c.id), ...fileCategories.map(c => c.id)]
+            , []);
+
+            const unassignedCategories = React.useMemo(() =>
+                allCategoryIds.filter(id => !assignedCategoryIds.has(id))
+            , [allCategoryIds, assignedCategoryIds]);
+
             // Sidebar menu items for Beheer
             const allMenuItems = [
                 { id: 'roles', label: 'Rollenbeheer' },
                 { id: 'profiles', label: 'Zichtbaarheidsprofielen', conceptA: true },
+                { id: 'groups', label: 'UX-groepen', conceptB: true },
                 { id: 'users', label: 'Gebruikersbeheer' },
                 { id: 'access', label: 'Toegangsrechten' },
                 { id: 'events', label: 'Evenementenbeheer' },
                 { id: 'config', label: 'Configuratiebeheer' }
             ];
-            const menuItems = allMenuItems.filter(item => !item.conceptA || concept === 'A');
+            const menuItems = allMenuItems.filter(item => (!item.conceptA || concept === 'A') && (!item.conceptB || concept === 'B'));
 
             // ============ ROLE EDITOR LOGIC ============
 
@@ -1594,7 +1831,7 @@
                     const id = profileEditForm.name.toLowerCase().replace(/\s+/g, '_');
                     setVisibilityProfiles(prev => [...prev, { ...profileEditForm, id }]);
                 } else {
-                    setVisibilityProfiles(prev => prev.map(p => p.id === selectedProfile ? profileEditForm : p));
+                    setVisibilityProfiles(prev => Array.isArray(prev) ? prev.map(p => p.id === selectedProfile ? profileEditForm : p) : prev);
                 }
                 closeProfileEditor();
             };
@@ -1983,15 +2220,34 @@
                 { key: 'fileCategories', label: 'Bestanden', items: fileCategories, formKey: 'fileCategories', getSensitivity: (item) => item.sensitive ? 'red' : null }
             ];
 
+            // Category groups mapped through hierarchy for Concept C V3/V4 (formKey maps subcategory ID to the right bucket)
+            const getFormKeyForSubcat = (subcatId) => {
+                for (const h of CATEGORY_HIERARCHY) {
+                    if (h.subcategories.some(s => s.id === subcatId)) {
+                        if (h.id === 'persoonsgegevens') return 'categories';
+                        if (h.id === 'dossier') return 'dossierCategories';
+                        if (h.id === 'certificaten') return 'certCategories';
+                        if (h.id === 'bestanden') return 'fileCategories';
+                    }
+                }
+                return 'categories';
+            };
+            const isSubcatActive = (subcatId) => {
+                const fk = getFormKeyForSubcat(subcatId);
+                return !!editForm[fk]?.[subcatId];
+            };
+
+            // Defined outside if(selectedRole) to avoid Babel eval scope issues
+            const totalCatMax = concept === 'C' ? ALL_GROUPS.length : dataGroups.length + dossierComponents.length + certificateCategories.length + fileCategories.length;
+
             if (selectedRole) {
                 const linkedProfile = concept === 'A' ? getProfileForRole(editForm) : null;
-                const catCount = ['B','C'].includes(concept) ? Object.values(editForm.categories || {}).filter(Boolean).length : 0;
-                const dossierCount = ['B','C'].includes(concept) ? Object.values(editForm.dossierCategories || {}).filter(Boolean).length : 0;
-                const certCount = ['B','C'].includes(concept) ? Object.values(editForm.certCategories || {}).filter(Boolean).length : 0;
-                const fileCount = ['B','C'].includes(concept) ? Object.values(editForm.fileCategories || {}).filter(Boolean).length : 0;
-                const totalCatCount = catCount + dossierCount + certCount + fileCount;
-                const totalCatMax = dataGroups.length + dossierComponents.length + certificateCategories.length + fileCategories.length;
-                const matchedPreset = concept === 'B' ? matchPreset(editForm) : null;
+                const catCount = ['B','C','E'].includes(concept) ? Object.values(editForm.categories || {}).filter(Boolean).length : 0;
+                const dossierCount = ['B','C','E'].includes(concept) ? Object.values(editForm.dossierCategories || {}).filter(Boolean).length : 0;
+                const certCount = ['B','C','E'].includes(concept) ? Object.values(editForm.certCategories || {}).filter(Boolean).length : 0;
+                const fileCount = ['B','C','E'].includes(concept) ? Object.values(editForm.fileCategories || {}).filter(Boolean).length : 0;
+                const totalCatCount = concept === 'C' ? ALL_GROUPS.filter(g => g.subcatIds.some(id => isSubcatActive(id))).length : catCount + dossierCount + certCount + fileCount;
+                const matchedPreset = (concept === 'B' || concept === 'E') ? matchPreset(editForm) : null;
                 return (
                     <div className="fixed inset-0 bg-yim-100 z-50 overflow-hidden flex flex-col">
                         <div className="bg-white border-b border-yim-200 px-6 py-4 flex items-center justify-between shrink-0">
@@ -2072,12 +2328,25 @@
                                     concept={concept}
                                 />
 
-                                {/* ===== Data-inzage scheidingslijn ===== */}
+                                {/* ===== Data-inzage scheidingslijn (niet voor Concept E — harde grenzen) ===== */}
+                                {concept !== 'E' && (
                                 <div className="flex items-center gap-3 mt-2">
                                     <div className="flex-1 border-t border-yim-300"></div>
                                     <span className="text-xs font-bold text-yim-500 uppercase tracking-wider">Data-inzage</span>
                                     <div className="flex-1 border-t border-yim-300"></div>
                                 </div>
+                                )}
+
+                                {/* Concept E: Read-only platformregels indicator */}
+                                {concept === 'E' && (
+                                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 mt-2 flex items-center gap-3">
+                                        <svg className="w-5 h-5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                        <div>
+                                            <p className="text-sm font-semibold text-purple-700">Data-inzage bepaald door platformregels</p>
+                                            <p className="text-xs text-purple-600 opacity-60">Harde grenzen zijn niet configureerbaar per rol. Zie platformregels in rollenbeheer.</p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* ===== CONCEPT B: Preset-First + Collapsible Groups ===== */}
                                 {concept === 'B' && (
@@ -2143,40 +2412,34 @@
                                         </div>
                                     </div>
 
-                                    {/* Collapsible category groups */}
+                                    {/* Read-only category summary (Concept B: presets as snapshot, no granular toggles) */}
                                     <div className="divide-y divide-yim-100">
                                         {categoryGroups.map(group => {
-                                            const activeCount = group.items.filter(item => !!editForm[group.formKey]?.[item.id]).length;
+                                            const activeItems = group.items.filter(item => !!editForm[group.formKey]?.[item.id]);
                                             const totalCount = group.items.length;
-                                            const allOn = activeCount === totalCount;
-                                            const isExpanded = expandedGroups[group.key];
                                             return (
-                                                <div key={group.key}>
-                                                    <div className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-colors ${isExpanded ? 'bg-yim-50' : 'hover:bg-yim-50'}`} onClick={() => toggleGroupExpand(group.key)}>
-                                                        <svg className={`w-4 h-4 text-yim-300 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                                        <span className="text-sm font-medium text-yim-600 flex-1">{group.label}</span>
-                                                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${activeCount === 0 ? 'text-yim-600 opacity-40 bg-yim-100' : activeCount === totalCount ? 'text-yim-green bg-yim-green/10' : 'text-yim-500 bg-yim-50'}`}>{activeCount}/{totalCount}</span>
-                                                        <button onClick={(e) => { e.stopPropagation(); const val = !allOn; const updated = {}; group.items.forEach(item => updated[item.id] = val); setEditForm(prev => ({ ...prev, [group.formKey]: updated })); }} className={`px-2 py-1 text-xs font-medium rounded transition-colors ${allOn ? 'text-yim-600 opacity-50 hover:bg-yim-200 bg-yim-100' : 'text-yim-500 hover:bg-yim-100 bg-yim-50'}`}>
-                                                            {allOn ? 'Alles uit' : 'Alles aan'}
-                                                        </button>
-                                                    </div>
-                                                    {isExpanded && (
-                                                        <div className="px-5 pb-4 pt-1 bg-yim-50/50">
-                                                            <div className="flex flex-wrap gap-2 ml-7">
-                                                                {group.items.map(item => {
-                                                                    const isActive = !!editForm[group.formKey]?.[item.id];
-                                                                    const sens = group.getSensitivity(item);
+                                                <div key={group.key} className="px-5 py-3 flex items-start gap-3">
+                                                    <span className="text-sm font-medium text-yim-600 w-32 flex-shrink-0 pt-0.5">{group.label}</span>
+                                                    <div className="flex-1">
+                                                        {activeItems.length === 0 ? (
+                                                            <span className="text-xs text-yim-400 italic">Geen categorieën actief</span>
+                                                        ) : (
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {activeItems.map(item => {
+                                                                    const sens = group.getSensitivity?.(item);
+                                                                    const isSensitive = sens === 'red';
                                                                     return (
-                                                                        <button key={item.id} onClick={() => setEditForm(prev => ({ ...prev, [group.formKey]: { ...prev[group.formKey], [item.id]: !prev[group.formKey]?.[item.id] } }))} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive ? 'bg-yim-500 text-white border-yim-500 shadow-sm' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                                            {isActive && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
-                                                                            {sens && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sens === 'red' ? (isActive ? 'bg-red-300' : 'bg-yim-red') : (isActive ? 'bg-orange-300' : 'bg-yim-orange')}`}></span>}
+                                                                        <span key={item.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${isSensitive ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-yim-50 border border-yim-200 text-yim-600'}`}
+                                                                            title={isSensitive ? 'Beperkt door platformregel' : undefined}>
+                                                                            {isSensitive && <svg className="w-3 h-3 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v.01M12 12V9m0-4a3 3 0 00-3 3v2H7a1 1 0 00-1 1v6a1 1 0 001 1h10a1 1 0 001-1v-6a1 1 0 00-1-1h-2V8a3 3 0 00-3-3z" /></svg>}
                                                                             {item.name}
-                                                                        </button>
+                                                                        </span>
                                                                     );
                                                                 })}
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
+                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${activeItems.length === 0 ? 'text-yim-600 opacity-40 bg-yim-100' : activeItems.length === totalCount ? 'text-yim-green bg-yim-green/10' : 'text-yim-500 bg-yim-50'}`}>{activeItems.length}/{totalCount}</span>
                                                 </div>
                                             );
                                         })}
@@ -2198,166 +2461,432 @@
                                 </>
                                 )}
 
-                                {/* ===== CONCEPT C: Sensitivity Level Selector ===== */}
-                                {concept === 'C' && (
-                                <>
-                                <div className="bg-white rounded-xl border border-yim-200 overflow-hidden">
-                                    <div className="px-5 py-4 border-b border-yim-200">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h3 className="text-sm font-semibold text-yim-600">Inzageniveau</h3>
-                                            {(() => {
-                                                const lvl = SENSITIVITY_LEVELS.find(l => l.level === editForm.sensitivityLevel);
-                                                const exCount = Object.values(editForm.exceptions || {}).reduce((sum, obj) => sum + Object.keys(obj || {}).length, 0);
-                                                const sugLvl = suggestSensitivityLevel(editForm.roleSettings || createDefaultRoleSettings()).level;
-                                                const isSuggested = sugLvl === editForm.sensitivityLevel && exCount === 0;
-                                                return (
-                                                    <div className="flex items-center gap-2">
-                                                        {isSuggested && <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">Voorgesteld</span>}
-                                                        {exCount > 0 && <span className="text-xs text-yim-orange bg-yim-orange/10 px-2 py-0.5 rounded border border-yim-orange/20">{exCount} uitzondering{exCount !== 1 ? 'en' : ''}</span>}
-                                                        <span className="text-xs px-2 py-0.5 rounded border" style={{color: lvl?.color, borderColor: lvl?.color + '40', backgroundColor: lvl?.color + '10'}}>{lvl?.name}</span>
+                                {/* ===== CONCEPT C: Sensitivity Level Selector (3 iteraties) ===== */}
+                                {concept === 'C' && (() => {
+                                    const exCount = Object.values(editForm.exceptions || {}).reduce((sum, obj) => sum + Object.keys(obj || {}).length, 0);
+                                    const sugLvl = suggestSensitivityLevel(editForm.roleSettings || createDefaultRoleSettings()).level;
+                                    const isSuggested = sugLvl === editForm.sensitivityLevel && exCount === 0;
+
+                                    // Shared toggle handler: slider reacts to chip selections
+                                    // - Activating a category with higher level → slider bumps UP
+                                    // - Deactivating categories → slider drops to max level still needed
+                                    const handleCategoryToggle = (group, item, isActive) => {
+                                        const newVal = !isActive;
+                                        setEditForm(prev => {
+                                            const curLevel = prev.sensitivityLevel || 1;
+                                            const catLevel = CATEGORY_MIN_LEVEL[item.id] || 1;
+
+                                            // Build desired state: current active categories ± this toggle
+                                            const desired = {};
+                                            ['categories', 'dossierCategories', 'certCategories', 'fileCategories'].forEach(key => {
+                                                Object.entries(prev[key] || {}).forEach(([id, v]) => { desired[id] = v; });
+                                            });
+                                            desired[item.id] = newVal;
+
+                                            // Calculate the minimum slider level to cover all active categories
+                                            // Only consider hierarchy subcategories (not legacy-only IDs that are invisible in V3 chips)
+                                            const hierarchyIds = new Set(ALL_SUBCATEGORIES.map(s => s.id));
+                                            let neededLevel = 1;
+                                            Object.entries(desired).forEach(([id, active]) => {
+                                                if (active && hierarchyIds.has(id) && CATEGORY_MIN_LEVEL[id]) neededLevel = Math.max(neededLevel, CATEGORY_MIN_LEVEL[id]);
+                                            });
+
+                                            if (neededLevel !== curLevel) {
+                                                // Slider moves: recalculate baseline + exceptions
+                                                const baseline = getCategoriesForLevel(neededLevel);
+                                                const newExceptions = {};
+                                                ['categories', 'dossierCategories', 'certCategories', 'fileCategories'].forEach(fk => {
+                                                    Object.entries(baseline[fk] || {}).forEach(([id, baseVal]) => {
+                                                        if (desired[id] !== undefined && desired[id] !== baseVal) {
+                                                            if (!newExceptions[fk]) newExceptions[fk] = {};
+                                                            newExceptions[fk][id] = desired[id];
+                                                        }
+                                                    });
+                                                });
+                                                const newCats = getCategoriesForLevel(neededLevel, newExceptions);
+                                                return { ...prev, sensitivityLevel: neededLevel, exceptions: newExceptions, ...newCats };
+                                            } else {
+                                                // Slider stays: just toggle this category as exception
+                                                const newLevelDefault = catLevel <= curLevel;
+                                                const newExceptions = { ...prev.exceptions };
+                                                if (!newExceptions[group.formKey]) newExceptions[group.formKey] = {};
+                                                if (newVal === newLevelDefault) {
+                                                    delete newExceptions[group.formKey][item.id];
+                                                    if (Object.keys(newExceptions[group.formKey]).length === 0) delete newExceptions[group.formKey];
+                                                } else {
+                                                    newExceptions[group.formKey][item.id] = newVal;
+                                                }
+                                                return { ...prev, exceptions: newExceptions, [group.formKey]: { ...prev[group.formKey], [item.id]: newVal } };
+                                            }
+                                        });
+                                    };
+
+                                    // V3: Handle group-level toggle (toggles all subcategories in a group)
+                                    const handleGroupToggle = (group) => {
+                                        const allActive = group.subcatIds.every(id => isSubcatActive(id));
+                                        const newVal = !allActive;
+                                        setEditForm(prev => {
+                                            const curLevel = prev.sensitivityLevel || 1;
+                                            const desired = {};
+                                            ['categories', 'dossierCategories', 'certCategories', 'fileCategories'].forEach(key => {
+                                                Object.entries(prev[key] || {}).forEach(([id, v]) => { desired[id] = v; });
+                                            });
+                                            group.subcatIds.forEach(id => { desired[id] = newVal; });
+
+                                            const hierarchyIds = new Set(ALL_SUBCATEGORIES.map(s => s.id));
+                                            let neededLevel = 1;
+                                            Object.entries(desired).forEach(([id, active]) => {
+                                                if (active && hierarchyIds.has(id) && CATEGORY_MIN_LEVEL[id]) neededLevel = Math.max(neededLevel, CATEGORY_MIN_LEVEL[id]);
+                                            });
+
+                                            if (neededLevel !== curLevel) {
+                                                const baseline = getCategoriesForLevel(neededLevel);
+                                                const newExceptions = {};
+                                                ['categories', 'dossierCategories', 'certCategories', 'fileCategories'].forEach(fk => {
+                                                    Object.entries(baseline[fk] || {}).forEach(([id, baseVal]) => {
+                                                        if (desired[id] !== undefined && desired[id] !== baseVal) {
+                                                            if (!newExceptions[fk]) newExceptions[fk] = {};
+                                                            newExceptions[fk][id] = desired[id];
+                                                        }
+                                                    });
+                                                });
+                                                const newCats = getCategoriesForLevel(neededLevel, newExceptions);
+                                                return { ...prev, sensitivityLevel: neededLevel, exceptions: newExceptions, ...newCats };
+                                            } else {
+                                                const newExceptions = { ...prev.exceptions };
+                                                const updates = {};
+                                                group.subcatIds.forEach(id => {
+                                                    const fk = getFormKeyForSubcat(id);
+                                                    const catLevel = CATEGORY_MIN_LEVEL[id] || 1;
+                                                    const defaultVal = catLevel <= curLevel;
+                                                    if (!updates[fk]) updates[fk] = { ...prev[fk] };
+                                                    updates[fk][id] = newVal;
+                                                    if (!newExceptions[fk]) newExceptions[fk] = {};
+                                                    if (newVal === defaultVal) {
+                                                        delete newExceptions[fk][id];
+                                                        if (Object.keys(newExceptions[fk]).length === 0) delete newExceptions[fk];
+                                                    } else {
+                                                        newExceptions[fk][id] = newVal;
+                                                    }
+                                                });
+                                                return { ...prev, exceptions: newExceptions, ...updates };
+                                            }
+                                        });
+                                    };
+
+                                    // V4: Handle scope change per sensitivity level
+                                    const handleScopePerLevelChange = (level, scope) => {
+                                        setRoles(prev => ({
+                                            ...prev,
+                                            [selectedRole]: { ...prev[selectedRole], scopePerLevel: { ...prev[selectedRole]?.scopePerLevel, [level]: scope } }
+                                        }));
+                                        setEditForm(prev => ({ ...prev, scopePerLevel: { ...prev.scopePerLevel, [level]: scope } }));
+                                    };
+
+                                    // V4: Count categories per sensitivity level
+                                    // Count categories per level (using hierarchy subcategories only)
+                                    const catsPerLevel = (() => {
+                                        const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+                                        ALL_SUBCATEGORIES.forEach(s => {
+                                            const lvl = CATEGORY_MIN_LEVEL[s.id];
+                                            if (lvl) counts[lvl] = (counts[lvl] || 0) + 1;
+                                        });
+                                        return counts;
+                                    })();
+
+                                    // Render checkbox rows for a category group (legacy, used by old views)
+                                    const renderCheckboxRows = (group) => {
+                                        const justKey = group.formKey === 'categories' ? 'categories' : group.formKey === 'dossierCategories' ? 'dossier' : group.formKey === 'certCategories' ? 'certs' : 'files';
+                                        const justifications = editForm._justifications?.[justKey] || {};
+                                        return group.items.map((item, idx) => {
+                                            const isActive = !!editForm[group.formKey]?.[item.id];
+                                            const levelDefault = CATEGORY_MIN_LEVEL[item.id] <= (editForm.sensitivityLevel || 1);
+                                            const isException = levelDefault !== isActive;
+                                            const sens = group.getSensitivity(item);
+                                            const isEven = idx % 2 === 0;
+                                            const reasons = justifications[item.id] || [];
+                                            return (
+                                                <div key={item.id}
+                                                    onClick={() => handleCategoryToggle(group, item, isActive)}
+                                                    className={`flex items-center justify-between px-5 py-1.5 cursor-pointer transition-colors hover:bg-[#e8eff2] ${isEven ? 'bg-[#f0f5f7]' : ''}`}>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <div className={`w-[18px] h-[18px] rounded-[4px] flex-shrink-0 flex items-center justify-center transition-all ${
+                                                            isActive
+                                                                ? isException ? 'bg-green-500' : 'bg-[#6daeba]'
+                                                                : isException ? 'bg-white border-2 border-red-300' : 'bg-white border border-[#a8bac1]'
+                                                        }`}>
+                                                            {isActive && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                                        </div>
+                                                        <span className="text-[13px] text-[#265263] truncate">{item.name}</span>
+                                                        {sens && <span className={`text-[9px] px-1 py-px rounded flex-shrink-0 ${sens === 'red' ? 'text-red-600 bg-red-50' : 'text-orange-600 bg-orange-50'}`}>{sens === 'red' ? 'zeer gevoelig' : 'gevoelig'}</span>}
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
-                                        {/* 4-step level selector */}
-                                        <div className="flex rounded-lg border border-yim-200 overflow-hidden">
-                                            {SENSITIVITY_LEVELS.map((lvl, i) => {
-                                                const isSelected = editForm.sensitivityLevel === lvl.level;
-                                                return (
-                                                    <button key={lvl.id} onClick={() => {
-                                                        const newCats = getCategoriesForLevel(lvl.level, editForm.exceptions);
-                                                        setEditForm(prev => ({ ...prev, sensitivityLevel: lvl.level, ...newCats }));
-                                                    }} className={`flex-1 px-2 py-3 text-center transition-all ${i > 0 ? 'border-l border-yim-200' : ''}`}
-                                                    style={isSelected ? {backgroundColor: lvl.color + '15', borderColor: lvl.color} : {}}>
-                                                        <div className="text-xs font-semibold" style={{color: isSelected ? lvl.color : '#6B7280'}}>{lvl.name}</div>
-                                                        <div className="text-[10px] mt-0.5" style={{color: isSelected ? lvl.color : '#9CA3AF'}}>{lvl.description}</div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        {/* Level visual bar */}
-                                        <div className="flex gap-1 mt-3">
-                                            {SENSITIVITY_LEVELS.map(lvl => (
-                                                <div key={lvl.id} className="flex-1 h-1.5 rounded-full transition-all" style={{backgroundColor: editForm.sensitivityLevel >= lvl.level ? lvl.color : '#E5E7EB'}} />
+                                                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                                                        {isException && (
+                                                            <span className={`text-[9px] font-medium px-1 py-px rounded ${isActive ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                                                                {isActive ? '+' : '−'}
+                                                            </span>
+                                                        )}
+                                                        {isActive && reasons.length > 0 && (
+                                                            <span className="relative group/tip">
+                                                                <svg className="w-3 h-3 text-purple-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tip:block z-10">
+                                                                    <div className="bg-yim-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
+                                                                        <p className="font-medium mb-1 text-white/70">Voorgesteld door:</p>
+                                                                        {reasons.slice(0, 5).map((r, i) => <p key={i} className="text-white/90">• {r}</p>)}
+                                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px"><div className="border-4 border-transparent border-t-yim-700"></div></div>
+                                                                    </div>
+                                                                </div>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        });
+                                    };
+
+                                    return (
+                                    <>
+                                    {/* Iteration toggle (prototype only) */}
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="text-xs text-yim-600 opacity-50">Iteratie:</span>
+                                        <div className="inline-flex rounded-[4px] border border-[#a8bac1] overflow-hidden" style={{ padding: '0.5px' }}>
+                                            {[{id: 3, label: 'Data scope'}, {id: 4, label: 'Inzage Scope'}].map(v => (
+                                                <button key={v.id} onClick={() => setDataViewVariant(v.id)}
+                                                    className={`px-3 py-1.5 text-xs font-medium transition-all ${dataViewVariant === v.id ? 'bg-[#6daeba] text-white' : 'bg-white text-[#265263] hover:bg-gray-50'}`}
+                                                    style={{ fontFamily: 'Nunito, sans-serif', borderLeft: v.id > 1 ? '0.5px solid #a8bac1' : 'none' }}>
+                                                    {v.label}
+                                                </button>
                                             ))}
                                         </div>
-                                        <p className="text-xs text-yim-600 opacity-40 mt-3">{totalCatCount}/{totalCatMax} categorieën inbegrepen · {editForm.allowedScopes?.subcontractors ? 'Incl. onderaannemers' : 'Eigen organisatie'}</p>
                                     </div>
 
-                                    {/* Data scope */}
-                                    <div className="border-t border-yim-200 px-5 py-4">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium text-yim-600">Data scope</p>
-                                                <p className="text-xs text-yim-600 opacity-50 mt-0.5">Wiens data mag deze rol bekijken?</p>
-                                            </div>
-                                            <div className="inline-flex rounded-lg border border-yim-200 overflow-hidden">
-                                                {[{ id: 'own_company', label: 'Eigen organisatie' }, { id: 'subcontractors', label: 'Incl. onderaannemers' }].map(option => {
-                                                    const isSelected = option.id === 'own_company' ? !editForm.allowedScopes?.subcontractors : !!editForm.allowedScopes?.subcontractors;
+                                    {/* ── Card 1: Data-inzage with visual slider (V3) or compact header (V4) ── */}
+                                    <div className="bg-white rounded-lg border border-yim-200 overflow-hidden">
+                                        <div className="px-5 py-3">
+                                            <h3 className="text-lg font-bold text-yim-700" style={{ fontFamily: 'Nunito, sans-serif' }}>Data inzage</h3>
+                                            <p className="text-xs text-yim-600 opacity-60 mt-0.5">Wiens data mag deze rol bekijken?</p>
+                                        </div>
+
+                                        {/* Inzageniveau label + tags */}
+                                        <div className="px-5 pb-2 flex items-center gap-2">
+                                            <label className="text-sm font-semibold text-yim-700" style={{ fontFamily: 'Nunito, sans-serif' }}>Inzageniveau</label>
+                                            <div className="flex-1"></div>
+                                            {isSuggested && <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">Voorgesteld</span>}
+                                            {exCount > 0 && <span className="text-xs text-yim-orange bg-yim-orange/10 px-2 py-0.5 rounded border border-yim-orange/20">{exCount} uitzondering{exCount !== 1 ? 'en' : ''}</span>}
+                                            {(() => {
+                                                const selectedLvl = SENSITIVITY_LEVELS.find(l => l.level === editForm.sensitivityLevel);
+                                                return selectedLvl ? <span className="text-xs font-semibold px-2 py-0.5 rounded border" style={{ color: selectedLvl.color, borderColor: selectedLvl.color + '40', backgroundColor: selectedLvl.color + '10' }}>{selectedLvl.name}</span> : null;
+                                            })()}
+                                        </div>
+
+                                        {/* Visual sensitivity slider with segments */}
+                                        <div className="px-5 pb-2">
+                                            <div className="flex rounded-lg border border-yim-200 overflow-hidden">
+                                                {SENSITIVITY_LEVELS.map((lvl, i) => {
+                                                    const isSelected = editForm.sensitivityLevel === lvl.level;
+                                                    const isIncluded = lvl.level <= editForm.sensitivityLevel;
                                                     return (
-                                                        <button key={option.id} onClick={() => setEditForm(prev => ({ ...prev, allowedScopes: { own_company: true, subcontractors: option.id === 'subcontractors' } }))} className={`px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-yim-500 text-white shadow-sm' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>
-                                                            {option.label}
+                                                        <button key={lvl.id} onClick={() => {
+                                                            const newCats = getCategoriesForLevel(lvl.level, {});
+                                                            setEditForm(prev => ({ ...prev, sensitivityLevel: lvl.level, exceptions: {}, ...newCats }));
+                                                        }}
+                                                        className={`flex-1 px-3 py-3 text-center transition-all ${i > 0 ? 'border-l border-yim-200' : ''} ${isSelected ? 'bg-white ring-2 ring-inset' : isIncluded ? 'bg-gray-50' : 'bg-gray-50 opacity-50'}`}
+                                                        style={{ fontFamily: 'Nunito, sans-serif', ringColor: isSelected ? lvl.color : undefined }}>
+                                                            <div className={`text-[13px] font-bold ${isSelected ? '' : 'text-[#265263]'}`} style={isSelected ? { color: lvl.color } : undefined}>{lvl.name}</div>
+                                                            <div className="text-[11px] text-yim-600 opacity-50 mt-0.5 leading-tight">{lvl.description}</div>
                                                         </button>
                                                     );
                                                 })}
                                             </div>
+                                            {/* Colored bar segments */}
+                                            <div className="flex mt-2 gap-0.5 h-2 rounded-full overflow-hidden">
+                                                {SENSITIVITY_LEVELS.map(lvl => {
+                                                    const count = catsPerLevel[lvl.level] || 0;
+                                                    const isIncluded = lvl.level <= editForm.sensitivityLevel;
+                                                    return (
+                                                        <div key={lvl.id}
+                                                            className="h-full rounded-full transition-all"
+                                                            style={{
+                                                                flex: count,
+                                                                backgroundColor: isIncluded ? lvl.color : '#e5e7eb',
+                                                                opacity: isIncluded ? 1 : 0.4
+                                                            }}></div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-xs text-yim-600 opacity-50 mt-2">{totalCatCount}/{totalCatMax} categorieën inbegrepen{editForm.allowedScopes?.subcontractors ? ' · Incl. onderaannemers' : ''}</p>
                                         </div>
-                                    </div>
 
-                                    {/* Exceptions section with justification tooltips */}
-                                    <div className="divide-y divide-yim-100">
-                                        {categoryGroups.map(group => {
-                                            const activeCount = group.items.filter(item => !!editForm[group.formKey]?.[item.id]).length;
-                                            const totalCount = group.items.length;
-                                            const isExpanded = expandedGroups[group.key];
-                                            const exceptionCount = group.items.filter(item => {
-                                                const levelDefault = CATEGORY_MIN_LEVEL[item.id] <= (editForm.sensitivityLevel || 1);
-                                                const actual = !!editForm[group.formKey]?.[item.id];
-                                                return levelDefault !== actual;
-                                            }).length;
-                                            const justKey = group.formKey === 'categories' ? 'categories' : group.formKey === 'dossierCategories' ? 'dossier' : group.formKey === 'certCategories' ? 'certs' : 'files';
-                                            const justifications = editForm._justifications?.[justKey] || {};
+                                        {/* Data scope toggle (V3 only — V4 uses per-level scope) */}
+                                        {dataViewVariant !== 4 && (
+                                        <div className="border-t border-yim-200">
+                                            <div className="px-5 py-3 flex items-center justify-between">
+                                                <label className="text-sm font-semibold text-yim-700" style={{ fontFamily: 'Nunito, sans-serif' }}>Data scope</label>
+                                                <div className="inline-flex rounded-lg border border-yim-200 overflow-hidden">
+                                                    <button onClick={() => setEditForm(prev => ({ ...prev, allowedScopes: { own_company: true, subcontractors: false } }))}
+                                                        className={`px-4 py-1.5 text-sm font-medium transition-all ${!editForm.allowedScopes?.subcontractors ? 'bg-[#6daeba] text-white' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>Eigen organisatie</button>
+                                                    <button onClick={() => setEditForm(prev => ({ ...prev, allowedScopes: { own_company: true, subcontractors: true } }))}
+                                                        className={`px-4 py-1.5 text-sm font-medium transition-all ${editForm.allowedScopes?.subcontractors ? 'bg-[#6daeba] text-white' : 'bg-white text-yim-600 hover:bg-yim-50'}`}>Incl. onderaannemers</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        )}
+
+                                        {/* V3: Collapsible hoofdcategorieën → categorieën (autorisatie) → velden */}
+                                        {dataViewVariant === 3 && CATEGORY_GROUPING.map(hoofdcat => {
+                                            const groupsInCat = hoofdcat.groups;
+                                            const activeGroupCount = groupsInCat.filter(g => g.subcatIds.some(id => isSubcatActive(id))).length;
+                                            const totalGroupCount = groupsInCat.length;
+                                            const isGroupExpanded = expandedCatGroups.has(hoofdcat.id);
                                             return (
-                                                <div key={group.key}>
-                                                    <div className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-colors ${isExpanded ? 'bg-yim-50' : 'hover:bg-yim-50'}`} onClick={() => toggleGroupExpand(group.key)}>
-                                                        <svg className={`w-4 h-4 text-yim-300 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                                        <span className="text-sm font-medium text-yim-600 flex-1">{group.label}</span>
-                                                        {exceptionCount > 0 && <span className="text-xs text-yim-orange bg-yim-orange/10 px-1.5 py-0.5 rounded">{exceptionCount}x</span>}
-                                                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${activeCount === 0 ? 'text-yim-600 opacity-40 bg-yim-100' : activeCount === totalCount ? 'text-yim-green bg-yim-green/10' : 'text-yim-500 bg-yim-50'}`}>{activeCount}/{totalCount}</span>
-                                                    </div>
-                                                    {isExpanded && (
-                                                        <div className="px-5 pb-4 pt-1 bg-yim-50/50">
-                                                            <div className="flex flex-wrap gap-2 ml-7">
-                                                                {group.items.map(item => {
-                                                                    const isActive = !!editForm[group.formKey]?.[item.id];
-                                                                    const levelDefault = CATEGORY_MIN_LEVEL[item.id] <= (editForm.sensitivityLevel || 1);
-                                                                    const isException = levelDefault !== isActive;
-                                                                    const sens = group.getSensitivity(item);
-                                                                    const reasons = justifications[item.id] || [];
-                                                                    return (
-                                                                        <div key={item.id} className="relative group">
-                                                                        <button onClick={() => {
-                                                                            const newVal = !isActive;
-                                                                            const newLevelDefault = CATEGORY_MIN_LEVEL[item.id] <= (editForm.sensitivityLevel || 1);
-                                                                            setEditForm(prev => {
-                                                                                const newExceptions = { ...prev.exceptions };
-                                                                                if (!newExceptions[group.formKey]) newExceptions[group.formKey] = {};
-                                                                                if (newVal === newLevelDefault) {
-                                                                                    delete newExceptions[group.formKey][item.id];
-                                                                                    if (Object.keys(newExceptions[group.formKey]).length === 0) delete newExceptions[group.formKey];
-                                                                                } else {
-                                                                                    newExceptions[group.formKey][item.id] = newVal;
-                                                                                }
-                                                                                return { ...prev, exceptions: newExceptions, [group.formKey]: { ...prev[group.formKey], [item.id]: newVal } };
-                                                                            });
-                                                                        }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${isActive
-                                                                            ? isException ? 'bg-yim-green text-white border-yim-green shadow-sm' : 'bg-yim-500 text-white border-yim-500 shadow-sm'
-                                                                            : isException ? 'bg-red-50 text-red-400 border-red-200 line-through' : 'bg-white text-yim-600 border-yim-200 hover:border-yim-500 hover:bg-yim-50'}`}>
-                                                                            {isActive && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
-                                                                            {isException && !isActive && <span className="text-xs">−</span>}
-                                                                            {isException && isActive && <span className="text-xs">+</span>}
-                                                                            {sens && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sens === 'red' ? (isActive ? 'bg-red-300' : 'bg-yim-red') : (isActive ? 'bg-orange-300' : 'bg-yim-orange')}`}></span>}
-                                                                            {item.name}
+                                                <div key={hoofdcat.id} className="border-t border-yim-200">
+                                                    <button onClick={() => setExpandedCatGroups(prev => {
+                                                        const s = new Set(prev);
+                                                        if (s.has(hoofdcat.id)) s.delete(hoofdcat.id); else s.add(hoofdcat.id);
+                                                        return s;
+                                                    })}
+                                                    className="w-full px-8 py-3.5 flex items-center justify-between hover:bg-[#f0f5f7] transition-colors">
+                                                        <div className="flex items-center gap-2">
+                                                            <svg className={`w-3 h-3 text-yim-600 transition-transform ${isGroupExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                                            <span className="text-sm font-medium text-[#265263]">{hoofdcat.label}</span>
+                                                        </div>
+                                                        <span className={`text-sm font-semibold ${activeGroupCount === totalGroupCount ? 'text-[#6daeba]' : 'text-yim-600'}`}>{activeGroupCount}/{totalGroupCount}</span>
+                                                    </button>
+                                                    {isGroupExpanded && (
+                                                        <div className="px-8 pb-4 pt-1 space-y-3">
+                                                            {groupsInCat.map(grp => {
+                                                                const activeSubcats = grp.subcatIds.filter(id => isSubcatActive(id));
+                                                                const allActive = activeSubcats.length === grp.subcatIds.length;
+                                                                const someActive = activeSubcats.length > 0;
+                                                                const maxLevel = Math.max(...grp.subcatIds.map(id => CATEGORY_MIN_LEVEL[id] || 1));
+                                                                const lvlColor = SENSITIVITY_LEVELS.find(l => l.level === maxLevel)?.color || '#9CA3AF';
+                                                                return (
+                                                                    <div key={grp.id}>
+                                                                        <button
+                                                                            onClick={() => handleGroupToggle(grp)}
+                                                                            className={`inline-flex items-center gap-2 py-1 rounded-[4px] text-[14px] font-semibold transition-all border ${
+                                                                                allActive
+                                                                                    ? 'bg-white text-[#3e3f40] border-[#6daeba] pl-1 pr-2'
+                                                                                    : someActive
+                                                                                        ? 'bg-white text-[#3e3f40] border-[#6daeba] border-dashed pl-1 pr-2'
+                                                                                        : 'bg-white text-[#1d1e1f] border-[#999a9b] px-2 hover:border-[#6daeba]'
+                                                                            }`}
+                                                                            style={{ fontFamily: 'Nunito, sans-serif', letterSpacing: '0.14px', lineHeight: '20px' }}>
+                                                                            {(allActive || someActive) && (
+                                                                                <svg className="w-[18px] h-[18px] text-[#6daeba]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={allActive ? "M5 13l4 4L19 7" : "M5 12h14"} />
+                                                                                </svg>
+                                                                            )}
+                                                                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: lvlColor }}></span>
+                                                                            {grp.name}
                                                                         </button>
-                                                                        {/* Justification tooltip */}
-                                                                        {isActive && reasons.length > 0 && (
-                                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-10">
-                                                                                <div className="bg-yim-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
-                                                                                    <p className="font-medium mb-1 text-white/70">Voorgesteld door:</p>
-                                                                                    {reasons.slice(0, 5).map((r, i) => (
-                                                                                        <p key={i} className="text-white/90">• {r}</p>
-                                                                                    ))}
-                                                                                    {reasons.length > 5 && <p className="text-white/50 mt-0.5">+ {reasons.length - 5} meer...</p>}
-                                                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px"><div className="border-4 border-transparent border-t-yim-700"></div></div>
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
+                                                                        <div className="mt-1 ml-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                                                                            {grp.subcatIds.map(subcatId => {
+                                                                                const subcat = SUBCAT_BY_ID[subcatId];
+                                                                                const isActive = isSubcatActive(subcatId);
+                                                                                const level = CATEGORY_MIN_LEVEL[subcatId] || 1;
+                                                                                const sColor = SENSITIVITY_LEVELS.find(l => l.level === level)?.color || '#9CA3AF';
+                                                                                return (
+                                                                                    <span key={subcatId} className={`inline-flex items-center gap-1.5 text-[12px] ${isActive ? 'text-[#3e3f40]' : 'text-[#999a9b]'}`} style={{ fontFamily: 'Nunito, sans-serif' }}>
+                                                                                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: sColor, opacity: isActive ? 1 : 0.4 }}></span>
+                                                                                        {subcat?.name || subcatId}
+                                                                                    </span>
+                                                                                );
+                                                                            })}
                                                                         </div>
-                                                                    );
-                                                                })}
-                                                            </div>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
                                             );
                                         })}
-                                    </div>
 
-                                    {/* canReveal toggle */}
-                                    <div className="border-t border-yim-200 px-5 py-4 bg-yim-50">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium text-yim-600">Tijdelijk onthullen</p>
-                                                <p className="text-xs text-yim-600 opacity-50 mt-0.5">Mag gemaskeerde velden tijdelijk (5 sec) bekijken</p>
+                                        {/* Tijdelijk onthullen */}
+                                        <div className="border-t border-yim-200 bg-[#f0f5f7]">
+                                            <div className="px-5 py-3 flex items-center justify-between">
+                                                <div>
+                                                    <label className="text-sm font-semibold text-yim-700" style={{ fontFamily: 'Nunito, sans-serif' }}>Tijdelijk onthullen</label>
+                                                    {editForm.canReveal && <p className="text-xs text-yim-600 opacity-50 mt-0.5">Mag gemaskeerde velden tijdelijk (5 sec) bekijken</p>}
+                                                </div>
+                                                <button onClick={() => setEditForm(prev => ({ ...prev, canReveal: !prev.canReveal }))}
+                                                    className={`relative w-12 h-7 rounded-full transition-all ${editForm.canReveal ? 'bg-[#6daeba]' : 'bg-gray-300'}`}>
+                                                    <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-all ${editForm.canReveal ? 'left-[22px]' : 'left-0.5'}`}></div>
+                                                </button>
                                             </div>
-                                            <button onClick={() => setEditForm(prev => ({ ...prev, canReveal: !prev.canReveal }))} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.canReveal ? 'bg-yim-500' : 'bg-yim-300'}`}>
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editForm.canReveal ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
                                         </div>
                                     </div>
-                                </div>
-                                </>
-                                )}
+
+                                    {/* ── V4: Scope per gevoeligheidsniveau card ── */}
+                                    {dataViewVariant === 4 && (
+                                    <div className="bg-white rounded-lg border border-yim-200 overflow-hidden">
+                                        <div className="px-4 py-2 border-b border-yim-200 flex items-center gap-2">
+                                            <svg className="w-3.5 h-3.5 text-[#6daeba]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                            <h4 className="text-[13px] font-bold text-yim-700" style={{ fontFamily: 'Nunito, sans-serif' }}>Scope per gevoeligheidsniveau</h4>
+                                            <span className="text-[10px] text-yim-600 opacity-50 ml-auto">Cross-company zichtbaarheid per niveau</span>
+                                        </div>
+                                        {SENSITIVITY_LEVELS.map((lvl, idx) => {
+                                            const scope = editForm.scopePerLevel?.[lvl.level] || 'own_company';
+                                            const catCount = catsPerLevel[lvl.level] || 0;
+                                            const isEven = idx % 2 === 0;
+                                            return (
+                                                <div key={lvl.id} className={`px-4 py-2 flex items-center justify-between ${idx > 0 ? 'border-t border-yim-100' : ''} ${isEven ? 'bg-[#f0f5f7]' : ''}`}>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: lvl.color }}></div>
+                                                        <span className="text-[12px] font-semibold text-[#265263]">{lvl.name}</span>
+                                                        <span className="text-[10px] text-yim-600 opacity-50">{catCount} cat.</span>
+                                                    </div>
+                                                    <div className="inline-flex rounded-[4px] border border-[#a8bac1] overflow-hidden" style={{ padding: '0.5px' }}>
+                                                        <button onClick={() => handleScopePerLevelChange(lvl.level, 'all')}
+                                                            className={`px-2.5 py-1 text-[11px] font-medium transition-all ${scope === 'all' ? 'bg-[#6daeba] text-white' : 'bg-white text-[#265263] hover:bg-gray-50'}`}
+                                                            style={{ fontFamily: 'Nunito, sans-serif' }}>
+                                                            Alle bedrijven
+                                                        </button>
+                                                        <button onClick={() => handleScopePerLevelChange(lvl.level, 'own_company')}
+                                                            className={`px-2.5 py-1 text-[11px] font-medium transition-all ${scope === 'own_company' ? 'bg-[#6daeba] text-white' : 'bg-white text-[#265263] hover:bg-gray-50'}`}
+                                                            style={{ fontFamily: 'Nunito, sans-serif', borderLeft: '0.5px solid #a8bac1' }}>
+                                                            Alleen eigen org.
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    )}
+
+                                    {/* ── V4: Category cards grouped by hoofdcategorie (read-only, with scope per level) ── */}
+                                    {dataViewVariant === 4 && CATEGORY_HIERARCHY.map(hoofdcat => {
+                                        const activeSubs = hoofdcat.subcategories.filter(s => isSubcatActive(s.id));
+                                        if (activeSubs.length === 0) return null;
+                                        return (
+                                            <div key={hoofdcat.id} className="bg-white rounded-lg border border-yim-200 overflow-hidden">
+                                                <div className="px-4 py-1.5 flex items-center justify-between">
+                                                    <h4 className="text-[13px] font-bold text-yim-700" style={{ fontFamily: 'Nunito, sans-serif' }}>{hoofdcat.label}</h4>
+                                                    <span className="text-[12px] font-semibold text-yim-600">{activeSubs.length}/{hoofdcat.subcategories.length}</span>
+                                                </div>
+                                                {activeSubs.map((subcat, idx) => {
+                                                    const level = CATEGORY_MIN_LEVEL[subcat.id] || 1;
+                                                    const lvlColor = SENSITIVITY_LEVELS.find(l => l.level === level)?.color || '#9CA3AF';
+                                                    const scope = editForm.scopePerLevel?.[level] || 'own_company';
+                                                    return (
+                                                        <div key={subcat.id} className={`px-4 py-1 flex items-center justify-between ${idx % 2 === 0 ? 'bg-[#f0f5f7]' : ''} ${idx === 0 ? 'border-t border-yim-200' : ''}`}>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: lvlColor }}></span>
+                                                                <span className="text-[12px] text-[#265263]">{subcat.name}</span>
+                                                            </div>
+                                                            {scope === 'own_company' && (
+                                                                <svg className="w-3 h-3 text-[#6daeba] opacity-50" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })}
+                                    </>
+                                    );
+                                })()}
 
                                 {/* Concept D removed — functionality merged into Concept C */}
 
@@ -2482,7 +3011,7 @@
                                             <div className="w-4 h-8 bg-yim-200 rounded-full mt-2"></div>
                                             <div>
                                                 <h1 className="text-4xl font-bold text-yim-600">Rollenbeheer</h1>
-                                                <p className="text-base font-bold text-yim-600 mt-1">{concept === 'A' ? 'Beheer rollen en hun gekoppelde zichtbaarheidsprofielen' : 'Beheer rollen en hun categorie-instellingen'}</p>
+                                                <p className="text-base font-bold text-yim-600 mt-1">{concept === 'A' ? 'Beheer rollen en hun gekoppelde zichtbaarheidsprofielen' : concept === 'E' ? 'Beheer rollen en bekijk platformregels (harde grenzen)' : 'Beheer rollen en hun categorie-instellingen'}</p>
                                             </div>
                                         </div>
                                         <div className="bg-white rounded-lg border border-yim-200 overflow-hidden">
@@ -2492,7 +3021,7 @@
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">Naam</th>
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">Beschrijving</th>
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">
-                                                            {concept === 'A' ? 'Profiel' : concept === 'B' ? 'Data zichtbaarheid' : 'Inzageniveau'}
+                                                            {concept === 'A' ? 'Profiel' : concept === 'B' ? 'Data zichtbaarheid' : concept === 'C' ? 'Inzageniveau' : 'Harde grenzen'}
                                                         </th>
                                                         <th className="px-6 py-3 text-left text-sm font-normal text-white">Onthullen</th>
                                                         <th className="px-6 py-3 text-right text-sm font-normal text-white"></th>
@@ -2501,10 +3030,10 @@
                                                 <tbody>
                                                     {Object.entries(roles).map(([key, roleData]) => {
                                                         const rp = concept === 'A' ? getProfileForRole(roleData) : null;
-                                                        const catCount = ['B','C'].includes(concept) ? Object.values(roleData.categories || {}).filter(Boolean).length : 0;
-                                                        const dossierCount = ['B','C'].includes(concept) ? Object.values(roleData.dossierCategories || {}).filter(Boolean).length : 0;
-                                                        const certCount = ['B','C'].includes(concept) ? Object.values(roleData.certCategories || {}).filter(Boolean).length : 0;
-                                                        const fileCount = ['B','C'].includes(concept) ? Object.values(roleData.fileCategories || {}).filter(Boolean).length : 0;
+                                                        const catCount = ['B','C','E'].includes(concept) ? Object.values(roleData.categories || {}).filter(Boolean).length : 0;
+                                                        const dossierCount = ['B','C','E'].includes(concept) ? Object.values(roleData.dossierCategories || {}).filter(Boolean).length : 0;
+                                                        const certCount = ['B','C','E'].includes(concept) ? Object.values(roleData.certCategories || {}).filter(Boolean).length : 0;
+                                                        const fileCount = ['B','C','E'].includes(concept) ? Object.values(roleData.fileCategories || {}).filter(Boolean).length : 0;
                                                         const roleTotalCat = catCount + dossierCount + certCount + fileCount;
                                                         const roleTotalMax = dataGroups.length + dossierComponents.length + certificateCategories.length + fileCategories.length;
                                                         const roleCanReveal = concept === 'A' ? rp?.canReveal : roleData.canReveal;
@@ -2639,8 +3168,229 @@
                                     </>
                                 )}
 
+                                {/* Concept E: Hard Boundary Rules Table (read-only) */}
+                                {concept === 'E' && activeMenu === 'roles' && (
+                                    <div className="mt-8">
+                                        <div className="flex items-start gap-4 mb-6">
+                                            <div className="w-4 h-8 bg-purple-200 rounded-full mt-2"></div>
+                                            <div>
+                                                <h2 className="text-2xl font-bold text-yim-600">Platformregels (harde grenzen)</h2>
+                                                <p className="text-base text-yim-600 opacity-60 mt-1">
+                                                    Deze regels zijn vastgelegd in het platform en kunnen niet worden aangepast
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg border border-purple-200 overflow-hidden">
+                                            <div className="bg-purple-50 px-6 py-3 border-b border-purple-200 flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-purple-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                                <span className="text-sm font-semibold text-purple-700">Niet-configureerbare beperkingen bij cross-company toegang</span>
+                                            </div>
+                                            <table className="w-full">
+                                                <thead className="bg-yim-50">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-yim-600 uppercase tracking-wider">Regel</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-yim-600 uppercase tracking-wider">Beperking</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-yim-600 uppercase tracking-wider">Betrokken data</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-yim-100">
+                                                    {HARD_BOUNDARY_RULES.map(rule => {
+                                                        const allBlocked = [...rule.blockedCategories, ...rule.blockedDossier, ...rule.blockedCerts, ...rule.blockedFiles];
+                                                        const allItems = [...dataGroups, ...dossierComponents, ...certificateCategories, ...fileCategories];
+                                                        const names = allBlocked.map(id => allItems.find(i => i.id === id)?.name).filter(Boolean);
+                                                        return (
+                                                            <tr key={rule.id}>
+                                                                <td className="px-6 py-4">
+                                                                    <div className="font-medium text-sm text-yim-600">{rule.label}</div>
+                                                                    <div className="text-xs text-yim-600 opacity-50 mt-0.5">{rule.description}</div>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md">
+                                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                                                                        {rule.rule}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-sm text-yim-600">
+                                                                    <div className="flex flex-wrap gap-1.5">
+                                                                        {names.map(n => (
+                                                                            <span key={n} className="px-2 py-0.5 bg-yim-50 border border-yim-200 rounded text-xs">{n}</span>
+                                                                        ))}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                            <div className="px-6 py-4 bg-purple-50/50 border-t border-purple-100">
+                                                <div className="flex items-start gap-2">
+                                                    <svg className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    <p className="text-xs text-purple-600">
+                                                        <strong>Hoe werkt dit?</strong> Wanneer een gebruiker data bekijkt van een medewerker bij een ander bedrijf (cross-company),
+                                                        worden bovenstaande categorieën automatisch verborgen. Dit geldt ongeacht de rolrechten van de gebruiker.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ===== UX-GROEPEN VIEW (Concept B) ===== */}
+                                {activeMenu === 'groups' && concept === 'B' && (
+                                    <>
+                                        <div className="flex items-start gap-4 mb-6">
+                                            <div className="w-4 h-8 bg-yim-200 rounded-full mt-2"></div>
+                                            <div>
+                                                <h1 className="text-4xl font-bold text-yim-600">UX-groepen</h1>
+                                                <p className="text-base font-bold text-yim-600 mt-1 opacity-50">Beheer presets voor data-inzage. Presets worden als snapshot toegepast op rollen.</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Snapshot explanation banner */}
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 flex items-start gap-3">
+                                            <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            <div>
+                                                <p className="text-sm font-semibold text-blue-700">Snapshot-principe</p>
+                                                <p className="text-xs text-blue-600 opacity-70">Wanneer een preset wordt toegepast op een rol, worden de instellingen gekopieerd. Wijzigingen aan een preset hebben geen effect op rollen die de preset eerder hebben gebruikt.</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-6">
+                                            {uxGroups.map((group) => (
+                                                <div key={group.id} className="bg-white rounded-lg border border-yim-200 overflow-hidden">
+                                                    {/* Group header */}
+                                                    <div className="px-5 py-4 bg-yim-50 border-b border-yim-200">
+                                                        <div className="flex items-center justify-between">
+                                                            {editingUxGroupId === group.id ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <input type="text" value={editingUxGroupLabel} onChange={(e) => setEditingUxGroupLabel(e.target.value)}
+                                                                        onKeyDown={(e) => { if (e.key === 'Enter') { setUxGroups(prev => prev.map(g => g.id === group.id ? { ...g, label: editingUxGroupLabel.trim() } : g)); setEditingUxGroupId(null); } if (e.key === 'Escape') setEditingUxGroupId(null); }}
+                                                                        className="px-3 py-1.5 border border-yim-300 rounded text-sm font-semibold text-yim-700 focus:ring-2 focus:ring-yim-500 focus:border-yim-500" autoFocus />
+                                                                    <button onClick={() => { setUxGroups(prev => prev.map(g => g.id === group.id ? { ...g, label: editingUxGroupLabel.trim() } : g)); setEditingUxGroupId(null); }} className="px-3 py-1.5 bg-yim-500 text-white text-xs font-semibold rounded hover:bg-yim-600 transition-colors">Opslaan</button>
+                                                                    <button onClick={() => setEditingUxGroupId(null)} className="px-3 py-1.5 text-yim-500 text-xs font-semibold rounded hover:bg-yim-100 transition-colors">Annuleren</button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-3">
+                                                                    <h3 className="text-base font-bold text-yim-700">{group.label}</h3>
+                                                                    <span className="text-xs text-yim-400 font-semibold">{group.presetIds.length} presets</span>
+                                                                    <button onClick={() => { setEditingUxGroupId(group.id); setEditingUxGroupLabel(group.label); }}
+                                                                        className="ml-1 text-yim-400 hover:text-yim-600 transition-colors" title="Hernoemen">
+                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {group.description && <p className="text-xs text-yim-500 mt-1 opacity-60">{group.description}</p>}
+                                                    </div>
+
+                                                    {/* Presets in this group */}
+                                                    <div className="divide-y divide-yim-100">
+                                                        {group.presetIds.map(presetId => {
+                                                            const preset = PRESETS.find(p => p.id === presetId);
+                                                            if (!preset) return null;
+                                                            const catCount = Object.values(preset.categories).filter(Boolean).length;
+                                                            const dosCount = Object.values(preset.dossierCategories).filter(Boolean).length;
+                                                            const certCount = Object.values(preset.certCategories).filter(Boolean).length;
+                                                            const fileCount = Object.values(preset.fileCategories).filter(Boolean).length;
+                                                            const totalCount = catCount + dosCount + certCount + fileCount;
+                                                            const usedByRoles = presetUsageByRole[presetId] || [];
+                                                            const isExpanded = expandedPresetId === presetId;
+                                                            return (
+                                                                <div key={presetId}>
+                                                                    <button onClick={() => setExpandedPresetId(isExpanded ? null : presetId)}
+                                                                        className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-yim-50/50 transition-colors text-left">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <svg className={`w-4 h-4 text-yim-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                                                            <span className="text-sm font-semibold text-yim-700">{preset.name}</span>
+                                                                            <span className="text-xs text-yim-400">{totalCount}/{dataGroups.length + dossierComponents.length + certificateCategories.length + fileCategories.length} cat.</span>
+                                                                            {preset.allowedScopes.subcontractors && <span className="text-xs text-yim-500 bg-yim-50 px-1.5 py-0.5 rounded border border-yim-200">+ sub</span>}
+                                                                            {preset.canReveal && <span className="text-xs text-yim-green bg-yim-green/10 px-1.5 py-0.5 rounded">onthullen</span>}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {usedByRoles.length > 0 && (
+                                                                                <span className="text-xs text-yim-400 flex items-center gap-1">
+                                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                                                    {usedByRoles.length} {usedByRoles.length === 1 ? 'rol' : 'rollen'}
+                                                                                </span>
+                                                                            )}
+                                                                            <svg className="w-4 h-4 text-yim-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                                                                        </div>
+                                                                    </button>
+                                                                    {isExpanded && (
+                                                                        <div className="px-5 pb-4 pt-1 bg-yim-50/30">
+                                                                            <div className="grid grid-cols-2 gap-3">
+                                                                                {[
+                                                                                    { label: 'Persoonsgegevens', data: preset.categories, items: dataGroups },
+                                                                                    { label: 'Dossier', data: preset.dossierCategories, items: dossierComponents },
+                                                                                    { label: 'Certificaten', data: preset.certCategories, items: certificateCategories },
+                                                                                    { label: 'Bestanden', data: preset.fileCategories, items: fileCategories }
+                                                                                ].map(section => {
+                                                                                    const active = section.items.filter(i => !!section.data[i.id]);
+                                                                                    return (
+                                                                                        <div key={section.label} className="bg-white rounded border border-yim-200 px-3 py-2">
+                                                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                                                <span className="text-xs font-semibold text-yim-600">{section.label}</span>
+                                                                                                <span className="text-xs text-yim-400">{active.length}/{section.items.length}</span>
+                                                                                            </div>
+                                                                                            <div className="flex flex-wrap gap-1">
+                                                                                                {section.items.map(item => {
+                                                                                                    const isSensitive = item.sensitivity === 'zeer_gevoelig' || item.sensitive === true;
+                                                                                                    const isActive = !!section.data[item.id];
+                                                                                                    return (
+                                                                                                        <span key={item.id} className={`inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded ${isSensitive && isActive ? 'bg-red-50 text-red-700 font-medium border border-red-200' : isActive ? 'bg-yim-100 text-yim-700 font-medium' : 'bg-yim-50 text-yim-400 line-through opacity-50'}`}
+                                                                                                            title={isSensitive ? 'Beperkt door platformregel' : undefined}>
+                                                                                                            {isSensitive && <svg className="w-2.5 h-2.5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v.01M12 12V9m0-4a3 3 0 00-3 3v2H7a1 1 0 00-1 1v6a1 1 0 001 1h10a1 1 0 001-1v-6a1 1 0 00-1-1h-2V8a3 3 0 00-3-3z" /></svg>}
+                                                                                                            {item.name}
+                                                                                                        </span>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-yim-100">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="text-xs text-yim-500">Scope:</span>
+                                                                                    <span className="text-xs font-medium text-yim-700">{preset.allowedScopes.subcontractors ? 'Incl. onderaannemers' : 'Alleen eigen organisatie'}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="text-xs text-yim-500">Onthullen:</span>
+                                                                                    <span className={`text-xs font-medium ${preset.canReveal ? 'text-yim-green' : 'text-yim-400'}`}>{preset.canReveal ? 'Ja' : 'Nee'}</span>
+                                                                                </div>
+                                                                                {usedByRoles.length > 0 && (
+                                                                                    <div className="flex items-center gap-2 ml-auto">
+                                                                                        <span className="text-xs text-yim-500">Snapshot in:</span>
+                                                                                        <span className="text-xs font-medium text-yim-600">{usedByRoles.join(', ')}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Nieuwe UX-groep toevoegen */}
+                                            <button onClick={() => {
+                                                const newId = 'ux_' + Date.now();
+                                                setUxGroups(prev => [...prev, { id: newId, label: 'Nieuwe groep', description: '', presetIds: [] }]);
+                                                setEditingUxGroupId(newId);
+                                                setEditingUxGroupLabel('Nieuwe groep');
+                                            }}
+                                                className="w-full py-4 border-2 border-dashed border-yim-300 rounded-lg text-yim-500 font-semibold hover:border-yim-500 hover:text-yim-600 hover:bg-yim-50 transition-all flex items-center justify-center gap-2">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                                Nieuwe UX-groep toevoegen
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+
                                 {/* Other menu items - placeholder */}
-                                {activeMenu !== 'roles' && activeMenu !== 'profiles' && (
+                                {activeMenu !== 'roles' && activeMenu !== 'profiles' && activeMenu !== 'groups' && (
                                     <div className="flex items-start gap-4 mb-8">
                                         <div className="w-4 h-8 bg-yim-200 rounded-full mt-2"></div>
                                         <div>
@@ -2697,11 +3447,13 @@
             const [rolesA, setRolesA] = useState(initialRolesA);
             const [rolesB, setRolesB] = useState(initialRolesB);
             const [rolesC, setRolesC] = useState(initialRolesC);
+            const [rolesE, setRolesE] = useState(initialRolesE);
             const [visibilityProfiles, setVisibilityProfiles] = useState(initialVisibilityProfiles);
             const [currentTab, setCurrentTab] = useState('viewer');
+            const [viewerContext, setViewerContext] = useState('own_company');
 
-            const roles = concept === 'A' ? rolesA : concept === 'B' ? rolesB : rolesC;
-            const setRoles = concept === 'A' ? setRolesA : concept === 'B' ? setRolesB : setRolesC;
+            const roles = concept === 'A' ? rolesA : concept === 'B' ? rolesB : concept === 'C' ? rolesC : rolesE;
+            const setRoles = concept === 'A' ? setRolesA : concept === 'B' ? setRolesB : concept === 'C' ? setRolesC : setRolesE;
 
             return (
                 <div>
@@ -2720,16 +3472,20 @@
                                     <button onClick={() => setConcept('C')} className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-all ${concept === 'C' ? 'bg-blue-500 text-white shadow-sm' : 'text-white/60 hover:text-white'}`}>
                                         C: Inzageniveau
                                     </button>
+                                    <button onClick={() => setConcept('E')} className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-all ${concept === 'E' ? 'bg-purple-500 text-white shadow-sm' : 'text-white/60 hover:text-white'}`}>
+                                        E: Harde grenzen
+                                    </button>
                                 </div>
                             </div>
                             <p className="text-xs text-white/40">
                                 {concept === 'A' ? 'Profiel = bron van waarheid · Profielwijziging raakt alle gekoppelde rollen'
                                  : concept === 'B' ? 'Rol = bron van waarheid · Presets vullen categorieën in, geen link bewaard'
-                                 : 'Inzageniveau met suggestie · Categorieën volgen uit rolinstellingen'}
+                                 : concept === 'C' ? 'Inzageniveau met suggestie · Categorieën volgen uit rolinstellingen'
+                                 : 'Platformregels · Zeer gevoelige data geblokkeerd bij cross-company toegang'}
                             </p>
                         </div>
                     </div>
-                    <App roles={roles} setRoles={setRoles} visibilityProfiles={visibilityProfiles} setVisibilityProfiles={setVisibilityProfiles} currentTab={currentTab} setCurrentTab={setCurrentTab} concept={concept} />
+                    <App roles={roles} setRoles={setRoles} visibilityProfiles={visibilityProfiles} setVisibilityProfiles={setVisibilityProfiles} currentTab={currentTab} setCurrentTab={setCurrentTab} concept={concept} viewerContext={viewerContext} setViewerContext={setViewerContext} />
                 </div>
             );
         }
