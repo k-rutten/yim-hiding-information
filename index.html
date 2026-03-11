@@ -158,7 +158,7 @@
         };
 
         // ============ CONCEPT B: Categories on roles, presets as UX helper ============
-        const PRESETS = [
+        const INITIAL_PRESETS = [
             { id: 'full', name: 'Volledige inzage', canReveal: true,
               categories: { identity: true, contact_work: true, address: true, government_id: true, compliance: true, hours: true, employment: true, access: true },
               dossierCategories: { foto: true, identificatie_locatie: true, identificatie_bsn: true, posted_worker: true, sociale_lasten: true, gewerkte_uren: true, vca_certificaten: true },
@@ -1643,12 +1643,13 @@
             const [editingUxGroupId, setEditingUxGroupId] = useState(null);
             const [editingUxGroupLabel, setEditingUxGroupLabel] = useState('');
             const [expandedPresetId, setExpandedPresetId] = useState(null);
+            const [presets, setPresets] = useState(INITIAL_PRESETS);
 
             const presetUsageByRole = React.useMemo(() => {
                 const usage = {};
-                PRESETS.forEach(p => { usage[p.id] = []; });
+                presets.forEach(p => { usage[p.id] = []; });
                 Object.entries(roles).forEach(([key, role]) => {
-                    const matched = PRESETS.find(p => {
+                    const matched = presets.find(p => {
                         const catMatch = Object.keys(p.categories).every(k => !!p.categories[k] === !!role.categories?.[k]);
                         const dosMatch = Object.keys(p.dossierCategories).every(k => !!p.dossierCategories[k] === !!role.dossierCategories?.[k]);
                         return catMatch && dosMatch;
@@ -1656,7 +1657,7 @@
                     if (matched) usage[matched.id].push(role.name);
                 });
                 return usage;
-            }, [roles]);
+            }, [roles, presets]);
 
             const allCategoryLookup = React.useMemo(() => {
                 const map = {};
@@ -2186,7 +2187,7 @@
 
             // Concept B: apply preset to editForm
             const applyPreset = (presetId) => {
-                const preset = PRESETS.find(p => p.id === presetId);
+                const preset = presets.find(p => p.id === presetId);
                 if (!preset) return;
                 setEditForm(prev => ({
                     ...prev,
@@ -2201,7 +2202,7 @@
 
             // Concept B: match current editForm against presets
             const matchPreset = (form) => {
-                return PRESETS.find(preset => {
+                return presets.find(preset => {
                     const catsMatch = Object.keys(preset.categories).every(k => !!preset.categories[k] === !!form.categories?.[k]);
                     const dossMatch = Object.keys(preset.dossierCategories).every(k => !!preset.dossierCategories[k] === !!form.dossierCategories?.[k]);
                     const certMatch = Object.keys(preset.certCategories).every(k => !!preset.certCategories[k] === !!form.certCategories?.[k]);
@@ -2363,7 +2364,7 @@
                                             )}
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {PRESETS.map(preset => {
+                                            {presets.map(preset => {
                                                 const isMatch = matchedPreset?.id === preset.id;
                                                 const total = Object.values(preset.categories).filter(Boolean).length + Object.values(preset.dossierCategories).filter(Boolean).length + Object.values(preset.certCategories).filter(Boolean).length + Object.values(preset.fileCategories).filter(Boolean).length;
                                                 return (
@@ -3286,7 +3287,7 @@
                                                     {/* Presets in this group */}
                                                     <div className="divide-y divide-yim-100">
                                                         {group.presetIds.map(presetId => {
-                                                            const preset = PRESETS.find(p => p.id === presetId);
+                                                            const preset = presets.find(p => p.id === presetId);
                                                             if (!preset) return null;
                                                             const catCount = Object.values(preset.categories).filter(Boolean).length;
                                                             const dosCount = Object.values(preset.dossierCategories).filter(Boolean).length;
@@ -3320,10 +3321,10 @@
                                                                         <div className="px-5 pb-4 pt-1 bg-yim-50/30">
                                                                             <div className="grid grid-cols-2 gap-3">
                                                                                 {[
-                                                                                    { label: 'Persoonsgegevens', data: preset.categories, items: dataGroups },
-                                                                                    { label: 'Dossier', data: preset.dossierCategories, items: dossierComponents },
-                                                                                    { label: 'Certificaten', data: preset.certCategories, items: certificateCategories },
-                                                                                    { label: 'Bestanden', data: preset.fileCategories, items: fileCategories }
+                                                                                    { label: 'Persoonsgegevens', dataKey: 'categories', data: preset.categories, items: dataGroups },
+                                                                                    { label: 'Dossier', dataKey: 'dossierCategories', data: preset.dossierCategories, items: dossierComponents },
+                                                                                    { label: 'Certificaten', dataKey: 'certCategories', data: preset.certCategories, items: certificateCategories },
+                                                                                    { label: 'Bestanden', dataKey: 'fileCategories', data: preset.fileCategories, items: fileCategories }
                                                                                 ].map(section => {
                                                                                     const active = section.items.filter(i => !!section.data[i.id]);
                                                                                     return (
@@ -3336,12 +3337,22 @@
                                                                                                 {section.items.map(item => {
                                                                                                     const isSensitive = item.sensitivity === 'zeer_gevoelig' || item.sensitive === true;
                                                                                                     const isActive = !!section.data[item.id];
+                                                                                                    if (isSensitive) {
+                                                                                                        return (
+                                                                                                            <span key={item.id} className={`inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded cursor-not-allowed ${isActive ? 'bg-red-50 text-red-700 font-medium border border-red-200' : 'bg-red-50/50 text-red-300 line-through border border-red-100'}`}
+                                                                                                                title="Beperkt door platformregel — niet wijzigbaar">
+                                                                                                                <svg className="w-2.5 h-2.5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v.01M12 12V9m0-4a3 3 0 00-3 3v2H7a1 1 0 00-1 1v6a1 1 0 001 1h10a1 1 0 001-1v-6a1 1 0 00-1-1h-2V8a3 3 0 00-3-3z" /></svg>
+                                                                                                                {item.name}
+                                                                                                            </span>
+                                                                                                        );
+                                                                                                    }
                                                                                                     return (
-                                                                                                        <span key={item.id} className={`inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded ${isSensitive && isActive ? 'bg-red-50 text-red-700 font-medium border border-red-200' : isActive ? 'bg-yim-100 text-yim-700 font-medium' : 'bg-yim-50 text-yim-400 line-through opacity-50'}`}
-                                                                                                            title={isSensitive ? 'Beperkt door platformregel' : undefined}>
-                                                                                                            {isSensitive && <svg className="w-2.5 h-2.5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v.01M12 12V9m0-4a3 3 0 00-3 3v2H7a1 1 0 00-1 1v6a1 1 0 001 1h10a1 1 0 001-1v-6a1 1 0 00-1-1h-2V8a3 3 0 00-3-3z" /></svg>}
+                                                                                                        <button key={item.id}
+                                                                                                            onClick={() => setPresets(prev => prev.map(p => p.id === presetId ? { ...p, [section.dataKey]: { ...p[section.dataKey], [item.id]: !p[section.dataKey][item.id] } } : p))}
+                                                                                                            className={`inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded transition-colors ${isActive ? 'bg-yim-100 text-yim-700 font-medium hover:bg-yim-200' : 'bg-yim-50 text-yim-400 line-through opacity-50 hover:opacity-75 hover:bg-yim-100'}`}
+                                                                                                            title={isActive ? 'Klik om uit te schakelen' : 'Klik om in te schakelen'}>
                                                                                                             {item.name}
-                                                                                                        </span>
+                                                                                                        </button>
                                                                                                     );
                                                                                                 })}
                                                                                             </div>
